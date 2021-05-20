@@ -115,7 +115,7 @@ logger.addHandler(fh)
 logger.addHandler(ch)
 logger.info(args)
 
-full_data, node_features, edge_features, train_data, val_data, test_data = \
+full_data, node_features, edge_feature, update_records, train_data, val_data, test_data = \
   get_data_node_classification(DATA, use_validation=args.use_validation)
 
 max_idx = max(full_data.unique_nodes)
@@ -138,7 +138,7 @@ for i in range(args.n_runs):
 
   # Initialize Model
   tgn = TGN(neighbor_finder=train_ngh_finder, node_features=node_features,
-            edge_features=edge_features, device=device,
+            update_records=update_records, device=device,
             n_layers=NUM_LAYER,
             n_heads=NUM_HEADS, dropout=DROP_OUT, use_memory=USE_MEMORY,
             message_dimension=MESSAGE_DIM, memory_dimension=MEMORY_DIM,

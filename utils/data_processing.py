@@ -2,10 +2,11 @@ import numpy as np
 import random
 import pandas as pd
 from scipy import sparse
+import json
 
 
 class Data:
-  def __init__(self, sources, destinations, timestamps, weight, length, edge_idxs, labels):
+  def __init__(self, sources, destinations, timestamps, weight, length, edge_idxs, labels, update_flags):
     self.sources = sources
     self.destinations = destinations
     self.timestamps = timestamps
@@ -13,6 +14,7 @@ class Data:
     self.length = length
     self.edge_idxs = edge_idxs
     self.labels = labels
+    self.update_flags = update_flags
     self.n_interactions = len(sources)
     self.unique_nodes = set(sources) | set(destinations)
     self.n_unique_nodes = len(self.unique_nodes)
@@ -21,8 +23,8 @@ class Data:
 def get_data_node_classification(dataset_name, use_validation=False, tag='membership', binary=True):
   ### Load data and train val test split
   graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
-  edge_features = sparse.load_npz('./dynamicGraph/ml_{}.spy.npz'.format(dataset_name)).todense()
-  #edge_features = np.load('./data/ml_{}.npy'.format(dataset_name))
+  with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
+    update_records = json.load(f)
   node_features = np.load('./dynamicGraph/ml_{}_node.npy'.format(dataset_name))
 
   val_time, test_time = list(np.quantile(graph_df.ts, [0.70, 0.85]))
@@ -45,6 +47,8 @@ def get_data_node_classification(dataset_name, use_validation=False, tag='member
   length = graph_df.length.values
   timestamps = graph_df.ts.values
 
+  edge_features = [[w, l] for w, l in zip(weight, length)]
+
   random.seed(2020)
 
   train_mask = timestamps <= val_time if use_validation else timestamps <= test_time
@@ -52,25 +56,25 @@ def get_data_node_classification(dataset_name, use_validation=False, tag='member
   test_mask = timestamps > test_time
   val_mask = np.logical_and(timestamps <= test_time, timestamps > val_time) if use_validation else test_mask
 
-  full_data = Data(sources, destinations, timestamps, weight, length, edge_idxs, labels)
+  full_data = Data(sources, destinations, timestamps, edge_idxs, labels)
   #print(len(train_mask), train_mask)
-  train_data = Data(sources[train_mask], destinations[train_mask], timestamps[train_mask], weight[train_mask], length[train_mask],
+  train_data = Data(sources[train_mask], destinations[train_mask], timestamps[train_mask],
                     edge_idxs[train_mask], labels[train_mask])
 
-  val_data = Data(sources[val_mask], destinations[val_mask], timestamps[val_mask], weight[val_mask], length[val_mask],
+  val_data = Data(sources[val_mask], destinations[val_mask], timestamps[val_mask],
                   edge_idxs[val_mask], labels[val_mask])
 
-  test_data = Data(sources[test_mask], destinations[test_mask], timestamps[test_mask], weight[test_mask], length[test_mask],
+  test_data = Data(sources[test_mask], destinations[test_mask], timestamps[test_mask],
                    edge_idxs[test_mask], labels[test_mask])
 
-  return full_data, node_features, edge_features, train_data, val_data, test_data
+  return full_data, node_features, edge_features, update_records, train_data, val_data, test_data
 
 
 def get_data(dataset_name, different_new_nodes_between_val_and_test=False, randomize_features=False, tag='superchat'):
   ### Load data and train val test split
   graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
-  edge_features = sparse.load_npz('./dynamicGraph/ml_{}.spy.npz'.format(dataset_name)).todense()
-  #edge_features = np.load('./data/ml_{}.npy'.format(dataset_name))
+  with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
+    update_records = json.load(f)
   node_features = np.load('./dynamicGraph/ml_{}_node.npy'.format(dataset_name))
     
   if randomize_features:
@@ -89,7 +93,9 @@ def get_data(dataset_name, different_new_nodes_between_val_and_test=False, rando
   weight = graph_df.weight.values
   length = graph_df.length.values
 
-  full_data = Data(sources, destinations, timestamps, weight, length, edge_idxs, labels)
+  edge_features = [[w, l] for w, l in zip(weight, length)]
+
+  full_data = Data(sources, destinations, timestamps, edge_idxs, labels)
 
   random.seed(2020)
 
@@ -115,7 +121,7 @@ def get_data(dataset_name, different_new_nodes_between_val_and_test=False, rando
   # used for inductiveness
   train_mask = np.logical_and(timestamps <= val_time, observed_edges_mask)   # 不在test node 且time stamp < 70%
 
-  train_data = Data(sources[train_mask], destinations[train_mask], timestamps[train_mask], weight[train_mask], length[train_mask],
+  train_data = Data(sources[train_mask], destinations[train_mask], timestamps[train_mask],
                     edge_idxs[train_mask], labels[train_mask])
 
   # define the new nodes sets for testing inductiveness of the model
@@ -146,19 +152,19 @@ def get_data(dataset_name, different_new_nodes_between_val_and_test=False, rando
     new_node_test_mask = np.logical_and(test_mask, edge_contains_new_node_mask)
 
   # validation and test with all edges
-  val_data = Data(sources[val_mask], destinations[val_mask], timestamps[val_mask], weight[val_mask], length[val_mask],
+  val_data = Data(sources[val_mask], destinations[val_mask], timestamps[val_mask],
                   edge_idxs[val_mask], labels[val_mask])
 
-  test_data = Data(sources[test_mask], destinations[test_mask], timestamps[test_mask], weight[test_mask], length[test_mask],
+  test_data = Data(sources[test_mask], destinations[test_mask], timestamps[test_mask],
                    edge_idxs[test_mask], labels[test_mask])
 
   # validation and test with edges that at least has one new node (not in training set)
   new_node_val_data = Data(sources[new_node_val_mask], destinations[new_node_val_mask],
-                           timestamps[new_node_val_mask], weight[new_node_val_mask], length[new_node_val_mask],
+                           timestamps[new_node_val_mask],
                            edge_idxs[new_node_val_mask], labels[new_node_val_mask])
 
   new_node_test_data = Data(sources[new_node_test_mask], destinations[new_node_test_mask],
-                            timestamps[new_node_test_mask], weight[new_node_test_mask], length[new_node_test_mask],
+                            timestamps[new_node_test_mask],
                             edge_idxs[new_node_test_mask], labels[new_node_test_mask])
 
   print("The dataset has {} interactions, involving {} different nodes".format(full_data.n_interactions,
@@ -176,7 +182,7 @@ def get_data(dataset_name, different_new_nodes_between_val_and_test=False, rando
   print("{} nodes were used for the inductive testing, i.e. are never seen during training".format(
     len(new_test_node_set)))
 
-  return node_features, edge_features, full_data, train_data, val_data, test_data, \
+  return node_features, edge_features, update_records, full_data, train_data, val_data, test_data, \
          new_node_val_data, new_node_test_data
 
 

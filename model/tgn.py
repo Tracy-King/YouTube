@@ -9,11 +9,11 @@ from modules.message_aggregator import get_message_aggregator
 from modules.message_function import get_message_function
 from modules.memory_updater import get_memory_updater
 from modules.embedding_module import get_embedding_module
-from model.time_encoding import TimeEncode
+from model.time_encoding import TimeEncode, EdgeEncode
 
 
 class TGN(torch.nn.Module):
-  def __init__(self, neighbor_finder, node_features, edge_features, device, n_layers=2,
+  def __init__(self, neighbor_finder, node_features, edge_features, update_records, device, n_layers=2,
                n_heads=2, dropout=0.1, use_memory=False,
                memory_update_at_start=True, message_dimension=100,
                memory_dimension=500, embedding_module_type="graph_attention",
@@ -31,12 +31,14 @@ class TGN(torch.nn.Module):
     self.device = device
     self.logger = logging.getLogger(__name__)
 
+    self.update_records = update_records
     self.node_raw_features = torch.from_numpy(node_features.astype(np.float32)).to(device)
     self.edge_raw_features = torch.from_numpy(edge_features.astype(np.float32)).to(device)
 
+
     self.n_node_features = self.node_raw_features.shape[1]
     self.n_nodes = self.node_raw_features.shape[0]
-    self.n_edge_features = self.edge_raw_features.shape[1]
+    self.n_edges = self.edge_raw_features.shape[0]
     self.embedding_dimension = self.n_node_features
     self.n_neighbors = n_neighbors
     self.embedding_module_type = embedding_module_type
@@ -46,6 +48,12 @@ class TGN(torch.nn.Module):
 
     self.use_memory = use_memory
     self.time_encoder = TimeEncode(dimension=self.n_node_features)
+    self.edge_encoder = EdgeEncode(dimension=self.n_node_features)
+
+    self.edge_raw_features = self.edge_encoder(self.edge_raw_features.unsqueeze(dim=1)).view(self.n_edges, -1)
+    self.n_edge_features = self.edge_raw_features.shape[1]
+    print("n_edges:", self.n_edges, "n_edge_feature:", self.n_edge_features)
+
     self.memory = None
 
     self.mean_time_shift_src = mean_time_shift_src
@@ -80,6 +88,7 @@ class TGN(torch.nn.Module):
     self.embedding_module = get_embedding_module(module_type=embedding_module_type,
                                                  node_features=self.node_raw_features,
                                                  edge_features=self.edge_raw_features,
+                                                 update_records=self.update_records,
                                                  memory=self.memory,
                                                  neighbor_finder=self.neighbor_finder,
                                                  time_encoder=self.time_encoder,

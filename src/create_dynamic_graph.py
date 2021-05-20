@@ -4,7 +4,7 @@ from scipy.spatial.distance import pdist
 import math
 from pathlib import Path
 import codecs
-from scipy import sparse
+import json
 
 pd.set_option('display.width', None)
 
@@ -24,6 +24,7 @@ def time_window_separate(series, emb, window, thrs):
     history_list = []
     node_list = {}
     history_edge_list = []
+    node_feature = {}
 
     batch_list = list(range(0, end_time, window))
     batch_list.append(end_time)
@@ -48,17 +49,17 @@ def time_window_separate(series, emb, window, thrs):
                 history_list.pop(0)
 
             while len(history_edge_list) != 0 and history_edge_list[0]['offset'] + window < offset:
-                tmp = history_edge_list[0]
-                dynamic_graph.append(['REMOVE', tmp['node1'], tmp['node2'], [0], i, offset, tmp['superchat'], tmp['membership'], 0.0, body_length])
                 history_edge_list.pop(0)
                 #print("Remove")
 
             if commenter_id not in node_list:
                 node_list[commenter_id] = 1
+                node_feature[commenter_id] = value
                 dynamic_graph.append(['CREATE', commenter_id, '0', value, i, offset, s_label, m_label, 1.0, body_length])
                 #print("Create")
             else:
                 node_list[commenter_id] += 1
+                node_feature[commenter_id] = value
                 dynamic_graph.append(['UPDATE', commenter_id, '0', value, i, offset, s_label, m_label, 1.0, body_length])
                 #print("Update")
             for n in history_list:
@@ -74,7 +75,7 @@ def time_window_separate(series, emb, window, thrs):
                                               'superchat':n[0]['superchat'],
                                               'membership':n[0]['membership']})
 
-                    dynamic_graph.append(['EDGE', n[0]['commenter_id'], commenter_id, value, i, offset, n[0]['superchat'], n[0]['membership'], cos_sim, body_length])
+                    dynamic_graph.append(['EDGE', n[0]['commenter_id'], commenter_id, [0], i, offset, n[0]['superchat'], n[0]['membership'], cos_sim, body_length])
                     #print("Edge")
             history_list.append([cur_row, i])
         if i % 50 == 0:
@@ -106,9 +107,11 @@ def dynamic_graph_create(series, emb, window, thrs):
 def preprocess(data, video_id, channel_id):
     u_list, i_list, ts_list, superchat_list, membership_list, weight_list, length_list = [], [], [], [], [], [], []
     idx_list = []
-    feat_l = []
+    idx_cnt = 1
+    update_records = {}
     unique_node = data['Node1'].drop_duplicates().values.tolist()
     n_unique_node = len(unique_node)
+    print('unique node:', n_unique_node)
     node_dict = dict(zip(unique_node, list(range(1, n_unique_node+1))))
 
     data['Superchat'] = data['Superchat'].fillna(0)
@@ -123,8 +126,9 @@ def preprocess(data, video_id, channel_id):
 
     for idx, cur_row in data[(data['Inst']=='UPDATE') | (data['Inst']=='EDGE')].iterrows():
         u = int(node_dict[cur_row['Node1']])  ## user id
-        if len(cur_row['Node2']) == 1:
-            i = u
+        if cur_row['Inst'] == 'UPDATE':
+            i = u  ## item id
+            update_records[idx_cnt] = [float(x) for x in cur_row['Value']]
         else:
             i = int(node_dict[cur_row['Node2']])  ## item id
 
@@ -133,7 +137,6 @@ def preprocess(data, video_id, channel_id):
         membership = int(float(cur_row['Membership']))  # int(e[3])   # state label
         weight = cur_row['Weight']
         length = cur_row['Length']
-        feat = np.array([float(x) for x in cur_row['Value']])
 
         u_list.append(u)
         i_list.append(i)
@@ -142,10 +145,9 @@ def preprocess(data, video_id, channel_id):
         length_list.append(int(length))
         superchat_list.append(superchat)
         membership_list.append(membership)
-        idx_list.append(idx)
-        feat_l.append(feat)
+        idx_list.append(idx_cnt)
+        idx_cnt += 1
 
-    idx_list = list(range(1, len(u_list)+1))
 
     return pd.DataFrame({'u': u_list,
                          'i': i_list,
@@ -154,33 +156,31 @@ def preprocess(data, video_id, channel_id):
                          'length': length_list,
                          'superchat': superchat_list,
                          'membership': membership_list,
-                         'idx': idx_list}), np.array(feat_n[1:]), np.array(feat_l), node_dict
+                         'idx': idx_list}), np.array(feat_n[1:]), update_records, node_dict
 
 
-def save_file(df, video_id, feat_l, feat_n):
+def save_file(df, video_id, update_records, feat_n):
     Path("data/").mkdir(parents=True, exist_ok=True)
     PATH = '../dynamicGraph/{}.csv'.format(video_id)
     OUT_DF = '../dynamicGraph/ml_{}.csv'.format(video_id)
-    OUT_FEAT = '../dynamicGraph/ml_{}.spy'.format(video_id)
+    OUT_FEAT = '../dynamicGraph/ml_{}.json'.format(video_id)
     OUT_NODE_FEAT = '../dynamicGraph/ml_{}_node.npy'.format(video_id)
 
     #print(feat_l.shape, feat_n.shape)
     #print(feat_l[:5], feat_n[:5])
-    empty = np.zeros(feat_l.shape[1])[np.newaxis, :]
-    feat_l = np.vstack([empty, feat_l])
+
     empty = np.zeros(feat_n[0].shape[0])[np.newaxis, :]
     feat_n = np.vstack([empty, feat_n])
 
-    feat_l = sparse.csr_matrix(feat_l)
 
     #print(feat_l.shape, feat_n.shape)
     #print(feat_l[:5], feat_n[:5])
 
-    for key in node_dict.keys():
-        node_dict[key] += 1
-
     df.to_csv(OUT_DF)
-    sparse.save_npz(OUT_FEAT, feat_l)
+
+    with open(OUT_FEAT, 'w') as f:
+        json.dump(update_records, f)
+
     np.save(OUT_NODE_FEAT, feat_n)
 
 
@@ -208,12 +208,22 @@ if __name__ == '__main__':
     print(new_data.info())
     #print(data)
     #print(data[(data['video_id']=='277076677') & (data['commenter_id']=='113567493')])
-    df, feat_n, feat_l, node_dict = preprocess(new_data, video_id, channel_id)
+    df, feat_n, update_records, node_dict = preprocess(new_data, video_id, channel_id)
 
     #print(df['superchat'].drop_duplicates())
     #print(df['membership'].drop_duplicates())
 
-    save_file(df, video_id, feat_l, feat_n)
+    save_file(df, video_id, update_records, feat_n)
+
+    with open('..\dynamicGraph\ml_{}.json'.format(video_id), 'r', encoding='UTF-8') as f:
+        update_records = json.load(f)
+
+    for k, v in update_records.items():
+        print(k, v)
+        print(type(v), len(v))
+        break
+
+    print(len(update_records))
 
 
 
