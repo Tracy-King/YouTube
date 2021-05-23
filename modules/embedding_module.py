@@ -14,6 +14,7 @@ class EmbeddingModule(nn.Module):
     self.node_features = node_features
     self.edge_features = edge_features
     self.update_records = update_records
+    self.update_records_idx = [int(i) for i in update_records.keys()]
     # self.memory = memory
     self.neighbor_finder = neighbor_finder
     self.time_encoder = time_encoder
@@ -25,13 +26,18 @@ class EmbeddingModule(nn.Module):
     self.embedding_dimension = embedding_dimension
     self.device = device
 
-  def compute_embedding(self, memory, source_nodes, timestamps, n_layers, n_neighbors=20, time_diffs=None,
+  def update_node_features(self, updated_node_raw_features):
+    #self.node_features = torch.from_numpy(updated_node_raw_features.astype(np.float32)).to(self.device)
+    self.node_features = updated_node_raw_features
+    return
+
+  def compute_embedding(self, memory, source_nodes, source_node_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
                         use_time_proj=True):
     pass
 
 
 class IdentityEmbedding(EmbeddingModule):
-  def compute_embedding(self, memory, source_nodes, timestamps, n_layers, n_neighbors=20, time_diffs=None,
+  def compute_embedding(self, memory, source_nodes, source_node_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
                         use_time_proj=True):
     return memory[source_nodes, :]
 
@@ -55,7 +61,7 @@ class TimeEmbedding(EmbeddingModule):
 
     self.embedding_layer = NormalLinear(1, self.n_node_features)
 
-  def compute_embedding(self, memory, source_nodes, timestamps, n_layers, n_neighbors=20, time_diffs=None,
+  def compute_embedding(self, memory, source_nodes, source_node_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
                         use_time_proj=True):
     source_embeddings = memory[source_nodes, :] * (1 + self.embedding_layer(time_diffs.unsqueeze(1)))
 
@@ -74,7 +80,7 @@ class GraphEmbedding(EmbeddingModule):
     self.use_memory = use_memory
     self.device = device
 
-  def compute_embedding(self, memory, source_nodes, timestamps, n_layers, n_neighbors=20, time_diffs=None,
+  def compute_embedding(self, memory, source_nodes, source_node_raw_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
                         use_time_proj=True):
     """Recursive implementation of curr_layers temporal graph attention layers.
 
@@ -92,16 +98,15 @@ class GraphEmbedding(EmbeddingModule):
     # query node always has the start time -> time span == 0
     source_nodes_time_embedding = self.time_encoder(torch.zeros_like(
       timestamps_torch))
-
-    source_node_features = self.node_features[source_nodes_torch, :]
+    #source_node_features = self.node_features[source_nodes_torch, :]
+    source_node_features = source_node_raw_features
 
     if self.use_memory:
-      source_node_features = memory[source_nodes, :] + source_node_features
+      source_node_features = memory[source_nodes, :] + source_node_raw_features
 
     if n_layers == 0:
       return source_node_features
     else:
-
       neighbors, edge_idxs, edge_times = self.neighbor_finder.get_temporal_neighbor(
         source_nodes,
         timestamps,
@@ -118,6 +123,7 @@ class GraphEmbedding(EmbeddingModule):
       neighbors = neighbors.flatten()
       neighbor_embeddings = self.compute_embedding(memory,
                                                    neighbors,
+                                                   self.node_features[neighbors, :],
                                                    np.repeat(timestamps, n_neighbors),
                                                    n_layers=n_layers - 1,
                                                    n_neighbors=n_neighbors)

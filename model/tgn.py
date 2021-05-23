@@ -32,6 +32,15 @@ class TGN(torch.nn.Module):
     self.logger = logging.getLogger(__name__)
 
     self.update_records = update_records
+    #print('update_records length:', len(update_records))
+    self.update_records_idx = [int(key) for key in update_records]
+    for k, v in update_records.items():
+        print(k, v, type(k), type(v), type(v[0]))
+        break
+
+    #print('self.update_record_idx:', self.update_records_idx, type(self.update_records_idx))
+    self.update_records_idx = np.array(sorted(self.update_records_idx))
+
     self.node_raw_features = torch.from_numpy(node_features.astype(np.float32)).to(device)
     self.edge_raw_features = torch.from_numpy(edge_features.astype(np.float32)).to(device)
 
@@ -49,8 +58,9 @@ class TGN(torch.nn.Module):
     self.use_memory = use_memory
     self.time_encoder = TimeEncode(dimension=self.n_node_features)
     self.edge_encoder = EdgeEncode(dimension=self.n_node_features)
+    self.edge_encoder.to(device)
 
-    self.edge_raw_features = self.edge_encoder(self.edge_raw_features.unsqueeze(dim=1)).view(self.n_edges, -1)
+    self.edge_raw_features = self.edge_encoder(self.edge_raw_features).view(self.n_edges, -1)
     self.n_edge_features = self.edge_raw_features.shape[1]
     print("n_edges:", self.n_edges, "n_edge_feature:", self.n_edge_features)
 
@@ -106,6 +116,9 @@ class TGN(torch.nn.Module):
     self.affinity_score = MergeLayer(self.n_node_features, self.n_node_features,
                                      self.n_node_features,
                                      1)
+  def update_node_features(self, node_idx, records_idx):
+    self.node_raw_features[node_idx] = torch.from_numpy(np.array(self.update_records[str(records_idx)]).astype(np.float32)).to(self.device)
+    return
 
   def compute_temporal_embeddings(self, source_nodes, destination_nodes, negative_nodes, edge_times,
                                   edge_idxs, n_neighbors=20):
@@ -153,8 +166,73 @@ class TGN(torch.nn.Module):
       time_diffs = torch.cat([source_time_diffs, destination_time_diffs, negative_time_diffs],
                              dim=0)
 
+    start_idx = np.searchsorted(self.update_records_idx, edge_idxs[0])  # 第一个update record index
+    end_idx = np.searchsorted(self.update_records_idx, edge_idxs[-1], side='right') - 1  # 最后一个update record index
+
+    if start_idx <= end_idx:
+      if start_idx == end_idx:
+        updates_idx = [self.update_records_idx[start_idx]]
+      else:
+        updates_idx = self.update_records_idx[start_idx: end_idx]    # edge index
+      #print('update_idx:', updates_idx)
+      #print(edge_idxs)
+      update_nodes_idx = [int(np.searchsorted(edge_idxs, i)) for i in updates_idx]   # edge对应的node list内的index
+      #print('update_nodes_idx:', update_nodes_idx)
+      n_updates = len(updates_idx)
+
+      if n_updates == 0:
+        source_node_features = self.node_raw_features[source_nodes, :]
+        destination_node_features = self.node_raw_features[destination_nodes, :]
+        negative_node_features = self.node_raw_features[negative_nodes, :]
+      else:
+        source_node_features = self.node_raw_features[source_nodes[:min(n_samples, update_nodes_idx[0])], :]
+        destination_node_features = self.node_raw_features[destination_nodes[:min(n_samples, update_nodes_idx[0])], :]
+        negative_node_features = self.node_raw_features[negative_nodes[:min(n_samples, update_nodes_idx[0])], :]
+
+        for i in range(n_updates-1):
+          start_slice = update_nodes_idx[i]
+          end_slice = update_nodes_idx[i+1]
+          self.update_node_features(source_nodes[start_slice], updates_idx[i])
+
+          source_node_features = torch.cat(
+            (source_node_features, self.node_raw_features[source_nodes[start_slice:end_slice], :]), dim=0)
+          destination_node_features = torch.cat(
+            (destination_node_features, self.node_raw_features[destination_nodes[start_slice:end_slice], :]), dim=0)
+          negative_node_features = torch.cat(
+            (negative_node_features, self.node_raw_features[negative_nodes[start_slice:end_slice], :]), dim=0)
+
+      #self.node_raw_features[source_nodes[update_nodes_idx[-1]]] = updates[update_nodes_idx[-1]]
+      #print(source_nodes[update_nodes_idx])
+          self.update_node_features(source_nodes[update_nodes_idx[-1]], updates_idx[-1])
+        if update_nodes_idx[-1] < n_samples:
+          start_slice = update_nodes_idx[-1]
+          source_node_features = torch.cat(
+            (source_node_features, self.node_raw_features[source_nodes[start_slice:], :]), dim=0)
+          destination_node_features = torch.cat(
+            (destination_node_features, self.node_raw_features[destination_nodes[start_slice:], :]), dim=0)
+          negative_node_features = torch.cat(
+            (negative_node_features, self.node_raw_features[negative_nodes[start_slice:], :]), dim=0)
+      #print(len(source_node_features))
+      assert len(source_node_features) == n_samples, 'source_node_feature error'
+      assert len(destination_node_features) == n_samples, 'destination_node_feature error'
+      assert len(negative_node_features) == n_samples, 'negative_node_features error'
+
+    else:
+      source_node_features = self.node_raw_features[source_nodes, :]
+      destination_node_features = self.node_raw_features[destination_nodes, :]
+      negative_node_features = self.node_raw_features[negative_nodes, :]
+
+    #print(type(source_node_features), type(destination_node_features), type(negative_node_features))
+    node_features = torch.cat([source_node_features, destination_node_features, negative_node_features], 0)
+
+    assert (node_features.shape[0] == 3*n_samples), 'node_features dimension 0 error'
+    assert (node_features.shape[1] == self.n_node_features), 'node_features dimension 1 error'
+
+    self.embedding_module.update_node_features(updated_node_raw_features=self.node_raw_features)
+    #print(type(node_features))
     # Compute the embeddings using the embedding module
     node_embedding = self.embedding_module.compute_embedding(memory=memory,
+                                                             source_node_raw_features=node_features,
                                                              source_nodes=nodes,
                                                              timestamps=timestamps,
                                                              n_layers=self.n_layers,

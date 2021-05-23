@@ -24,7 +24,7 @@ parser.add_argument('--bs', type=int, default=200, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
-parser.add_argument('--n_epoch', type=int, default=50, help='Number of epochs')
+parser.add_argument('--n_epoch', type=int, default=1, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
@@ -109,8 +109,8 @@ logger.addHandler(ch)
 logger.info(args)
 
 ### Extract data for training, validation and testing
-node_features, edge_features, full_data, train_data, val_data, test_data, new_node_val_data, \
-new_node_test_data = get_data(DATA,
+node_features, edge_features, update_records, full_data, train_data, val_data, test_data, \
+         new_node_val_data, new_node_test_data = get_data(DATA,
                               different_new_nodes_between_val_and_test=args.different_new_nodes, randomize_features=args.randomize_features)
 
 # Initialize training neighbor finder to retrieve temporal graph
@@ -132,7 +132,7 @@ nn_test_rand_sampler = RandEdgeSampler(new_node_test_data.sources,
                                        seed=3) # 随机生成new node test中src到des的edge的list
 
 # Set device
-device_string = 'cuda:{}'.format(GPU) if torch.cuda.is_available() else 'cpu'
+device_string = 'cpu' #'cuda:{}'.format(GPU) if torch.cuda.is_available() else 'cpu'
 device = torch.device(device_string)
 
 # Compute time statistics
@@ -145,7 +145,7 @@ for i in range(args.n_runs):
 
   # Initialize Model
   tgn = TGN(neighbor_finder=train_ngh_finder, node_features=node_features,
-            edge_features=edge_features, device=device,
+            edge_features=edge_features, update_records=update_records, device=device,
             n_layers=NUM_LAYER,
             n_heads=NUM_HEADS, dropout=DROP_OUT, use_memory=USE_MEMORY,
             message_dimension=MESSAGE_DIM, memory_dimension=MEMORY_DIM,
@@ -224,7 +224,7 @@ for i in range(args.n_runs):
 
       loss /= args.backprop_every
 
-      loss.backward()
+      loss.backward(retain_graph=True)
       optimizer.step()
       m_loss.append(loss.item())
 

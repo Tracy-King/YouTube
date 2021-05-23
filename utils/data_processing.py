@@ -6,15 +6,12 @@ import json
 
 
 class Data:
-  def __init__(self, sources, destinations, timestamps, weight, length, edge_idxs, labels, update_flags):
+  def __init__(self, sources, destinations, timestamps, edge_idxs, labels):
     self.sources = sources
     self.destinations = destinations
     self.timestamps = timestamps
-    self.weight = weight
-    self.length = length
     self.edge_idxs = edge_idxs
     self.labels = labels
-    self.update_flags = update_flags
     self.n_interactions = len(sources)
     self.unique_nodes = set(sources) | set(destinations)
     self.n_unique_nodes = len(self.unique_nodes)
@@ -47,7 +44,7 @@ def get_data_node_classification(dataset_name, use_validation=False, tag='member
   length = graph_df.length.values
   timestamps = graph_df.ts.values
 
-  edge_features = [[w, l] for w, l in zip(weight, length)]
+  edge_features = np.array([[w, l] for w, l in zip(weight, length)])
 
   random.seed(2020)
 
@@ -75,6 +72,7 @@ def get_data(dataset_name, different_new_nodes_between_val_and_test=False, rando
   graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
   with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
     update_records = json.load(f)
+
   node_features = np.load('./dynamicGraph/ml_{}_node.npy'.format(dataset_name))
     
   if randomize_features:
@@ -93,7 +91,7 @@ def get_data(dataset_name, different_new_nodes_between_val_and_test=False, rando
   weight = graph_df.weight.values
   length = graph_df.length.values
 
-  edge_features = [[w, l] for w, l in zip(weight, length)]
+  edge_features = np.array([[w, l] for w, l in zip(weight, length)])
 
   full_data = Data(sources, destinations, timestamps, edge_idxs, labels)
 
