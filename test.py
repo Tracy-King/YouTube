@@ -3,6 +3,7 @@ import json
 import codecs
 import pandas as pd
 import torch
+import numpy as np
 
 pd.set_option('display.max_columns', None)
 
@@ -13,9 +14,9 @@ print(torch.cuda.get_device_name(0))
 
 a = [0, 1, 2]
 
-print(a[1:1])
+print(np.tile(a, (2, 1)))
 
-root = 'tgn-attn-97DWg8tqo4M_node_classification'
+root = 'tgn-attn-97DWg8tqo4M'
 
 data = pickle.load(open('results/{}.pkl'.format(root), 'rb'))
 

@@ -115,7 +115,9 @@ logger.addHandler(fh)
 logger.addHandler(ch)
 logger.info(args)
 
-full_data, node_features, edge_feature, update_records, train_data, val_data, test_data = \
+torch.cuda.empty_cache()
+
+full_data, node_features, edge_features, update_records, train_data, val_data, test_data = \
   get_data_node_classification(DATA, use_validation=args.use_validation)
 
 max_idx = max(full_data.unique_nodes)
@@ -138,7 +140,7 @@ for i in range(args.n_runs):
 
   # Initialize Model
   tgn = TGN(neighbor_finder=train_ngh_finder, node_features=node_features,
-            update_records=update_records, device=device,
+            edge_features=edge_features, update_records=update_records, device=device,
             n_layers=NUM_LAYER,
             n_heads=NUM_HEADS, dropout=DROP_OUT, use_memory=USE_MEMORY,
             message_dimension=MESSAGE_DIM, memory_dimension=MEMORY_DIM,
@@ -169,10 +171,14 @@ for i in range(args.n_runs):
   decoder = MLP(node_features.shape[1], drop=DROP_OUT)
   decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=args.lr)
   decoder = decoder.to(device)
-  decoder_loss_criterion = torch.nn.BCELoss()
+
 
   val_aucs = []
   train_losses = []
+  val_accs = []
+  val_recs = []
+  val_pres = []
+  val_cms = []
 
   early_stopper = EarlyStopMonitor(max_round=args.patience)
   for epoch in range(args.n_epoch):
@@ -208,6 +214,8 @@ for i in range(args.n_runs):
                                                                                      NUM_NEIGHBORS)
 
       labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+      weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
+      decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
       pred = decoder(source_embedding).sigmoid()
       decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
       decoder_loss.backward()
@@ -215,18 +223,28 @@ for i in range(args.n_runs):
       loss += decoder_loss.item()
     train_losses.append(loss / num_batch)
 
-    val_auc = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, BATCH_SIZE,
+    val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, BATCH_SIZE,
                                        n_neighbors=NUM_NEIGHBORS)
     val_aucs.append(val_auc)
+    val_accs.append(val_acc)
+    val_recs.append(val_rec)
+    val_pres.append(val_pre)
+    val_cms.append(val_cm)
+
 
     pickle.dump({
       "val_aps": val_aucs,
+      "val_acc": val_accs,
+      "val_rec": val_recs,
+      "val_pre": val_pres,
+      "val_cm": val_cms,
       "train_losses": train_losses,
       "epoch_times": [0.0],
       "new_nodes_val_aps": [],
     }, open(results_path, "wb"))
 
-    logger.info(f'Epoch {epoch}: train loss: {loss / num_batch}, val auc: {val_auc}, time: {time.time() - start_epoch}')
+    logger.info(f'Epoch {epoch}: train loss: {loss / num_batch}, val auc: {val_auc}, val acc: {val_acc}, '
+                f'val rec: {val_rec}, val pre: {val_pre}, val cm: {val_cm}, time: {time.time() - start_epoch}')
   
   if args.use_validation:
     if early_stopper.early_stop_check(val_auc):
@@ -242,20 +260,33 @@ for i in range(args.n_runs):
     logger.info(f'Loaded the best model at epoch {early_stopper.best_epoch} for inference')
     decoder.eval()
 
-    test_auc = eval_node_classification(tgn, decoder, test_data, full_data.edge_idxs, BATCH_SIZE,
+    test_auc, test_acc, test_rec, test_pre, test_cm = eval_node_classification(tgn, decoder, test_data, full_data.edge_idxs, BATCH_SIZE,
                                         n_neighbors=NUM_NEIGHBORS)
   else:
     # If we are not using a validation set, the test performance is just the performance computed
     # in the last epoch
     test_auc = val_aucs[-1]
+    test_acc = val_accs[-1]
+    test_rec = val_recs[-1]
+    test_pre = val_pres[-1]
+    test_cm = val_cms[-1]
     
   pickle.dump({
     "val_aps": val_aucs,
+    "val_acc": val_accs,
+    "val_rec": val_recs,
+    "val_pre": val_pres,
+    "val_cm": val_cms,
     "test_ap": test_auc,
+    "test_acc": test_acc,
+    "test_rec": test_rec,
+    "test_pre": test_pre,
+    "test_cm": test_cm,
     "train_losses": train_losses,
     "epoch_times": [0.0],
     "new_nodes_val_aps": [],
     "new_node_test_ap": 0,
   }, open(results_path, "wb"))
 
-  logger.info(f'test auc: {test_auc}')
+  logger.info(f'test auc: {test_auc},val acc: {test_acc}, '
+                f'val rec: {test_rec}, val pre: {test_pre}, val cm: {val_cm}')

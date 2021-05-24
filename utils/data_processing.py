@@ -17,7 +17,7 @@ class Data:
     self.n_unique_nodes = len(self.unique_nodes)
 
 
-def get_data_node_classification(dataset_name, use_validation=False, tag='membership', binary=True):
+def get_data_node_classification(dataset_name, use_validation=False, tag='superchat', binary=True):
   ### Load data and train val test split
   graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
   with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
@@ -37,7 +37,7 @@ def get_data_node_classification(dataset_name, use_validation=False, tag='member
     labels = graph_df.membership.values  # label membership
   if binary:
     print('binary')
-    labels = np.array([(n+9)//10 for n in labels])
+    labels = np.array([int((n+9)//10) for n in labels])
   #print(labels.shape, labels, np.unique(labels))
 
   weight = graph_df.weight.values

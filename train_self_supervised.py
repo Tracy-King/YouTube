@@ -24,7 +24,7 @@ parser.add_argument('--bs', type=int, default=200, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
-parser.add_argument('--n_epoch', type=int, default=1, help='Number of epochs')
+parser.add_argument('--n_epoch', type=int, default=20, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
@@ -132,7 +132,7 @@ nn_test_rand_sampler = RandEdgeSampler(new_node_test_data.sources,
                                        seed=3) # 随机生成new node test中src到des的edge的list
 
 # Set device
-device_string = 'cpu' #'cuda:{}'.format(GPU) if torch.cuda.is_available() else 'cpu'
+device_string = 'cuda:{}'.format(GPU) if torch.cuda.is_available() else 'cpu'
 device = torch.device(device_string)
 
 # Compute time statistics
@@ -176,6 +176,9 @@ for i in range(args.n_runs):
   epoch_times = []
   total_epoch_times = []
   train_losses = []
+  val_accs = []
+  val_recs = []
+  val_pres = []
 
   early_stopper = EarlyStopMonitor(max_round=args.patience)
   for epoch in range(NUM_EPOCH):
@@ -210,6 +213,8 @@ for i in range(args.n_runs):
         timestamps_batch = train_data.timestamps[start_idx:end_idx]
 
         size = len(sources_batch)
+
+
         _, negatives_batch = train_rand_sampler.sample(size)
 
         with torch.no_grad():
@@ -219,7 +224,7 @@ for i in range(args.n_runs):
         tgn = tgn.train()
         pos_prob, neg_prob = tgn.compute_edge_probabilities(sources_batch, destinations_batch, negatives_batch,
                                                             timestamps_batch, edge_idxs_batch, NUM_NEIGHBORS)
-
+        #print('pos_prob.squeeze: {} \t neg_prob.squeeze {}'.format(pos_prob.squeeze().shape, neg_prob.squeeze().shape))
         loss += criterion(pos_prob.squeeze(), pos_label) + criterion(neg_prob.squeeze(), neg_label)
 
       loss /= args.backprop_every
@@ -245,7 +250,7 @@ for i in range(args.n_runs):
       # validation on unseen nodes
       train_memory_backup = tgn.memory.backup_memory()
 
-    val_ap, val_auc = eval_edge_prediction(model=tgn,
+    val_ap, val_auc, val_acc, val_rec, val_pre = eval_edge_prediction(model=tgn,
                                                             negative_edge_sampler=val_rand_sampler,
                                                             data=val_data,
                                                             n_neighbors=NUM_NEIGHBORS)
@@ -257,7 +262,7 @@ for i in range(args.n_runs):
       tgn.memory.restore_memory(train_memory_backup)
 
     # Validate on unseen nodes
-    nn_val_ap, nn_val_auc = eval_edge_prediction(model=tgn,
+    nn_val_ap, nn_val_auc, nn_val_acc, nn_val_rec, nn_val_pre = eval_edge_prediction(model=tgn,
                                                                         negative_edge_sampler=val_rand_sampler,
                                                                         data=new_node_val_data,
                                                                         n_neighbors=NUM_NEIGHBORS)
@@ -268,11 +273,17 @@ for i in range(args.n_runs):
 
     new_nodes_val_aps.append(nn_val_ap)
     val_aps.append(val_ap)
+    val_accs.append(val_acc)
+    val_recs.append(val_rec)
+    val_pres.append(val_pre)
     train_losses.append(np.mean(m_loss))
 
     # Save temporary results to disk
     pickle.dump({
       "val_aps": val_aps,
+      "val_acc": val_accs,
+      "val_rec": val_recs,
+      "val_pre": val_pres,
       "new_nodes_val_aps": new_nodes_val_aps,
       "train_losses": train_losses,
       "epoch_times": epoch_times,
@@ -284,6 +295,8 @@ for i in range(args.n_runs):
 
     logger.info('epoch: {} took {:.2f}s'.format(epoch, total_epoch_time))
     logger.info('Epoch mean loss: {}'.format(np.mean(m_loss)))
+    logger.info(
+        'val acc: {}, val rec: {}, val pre: {}'.format(val_acc, val_rec, val_pre))
     logger.info(
       'val auc: {}, new node val auc: {}'.format(val_auc, nn_val_auc))
     logger.info(
@@ -309,7 +322,7 @@ for i in range(args.n_runs):
 
   ### Test
   tgn.embedding_module.neighbor_finder = full_ngh_finder
-  test_ap, test_auc = eval_edge_prediction(model=tgn,
+  test_ap, test_auc, test_acc, test_rec, test_pre = eval_edge_prediction(model=tgn,
                                                               negative_edge_sampler=test_rand_sampler,
                                                               data=test_data,
                                                               n_neighbors=NUM_NEIGHBORS)
@@ -318,7 +331,7 @@ for i in range(args.n_runs):
     tgn.memory.restore_memory(val_memory_backup)
 
   # Test on unseen nodes
-  nn_test_ap, nn_test_auc = eval_edge_prediction(model=tgn,
+  nn_test_ap, nn_test_auc, nn_test_acc, nn_test_rec, nn_test_pre = eval_edge_prediction(model=tgn,
                                                                           negative_edge_sampler=nn_test_rand_sampler,
                                                                           data=new_node_test_data,
                                                                           n_neighbors=NUM_NEIGHBORS)
@@ -330,8 +343,14 @@ for i in range(args.n_runs):
   # Save results for this run
   pickle.dump({
     "val_aps": val_aps,
+    "val_acc": val_accs,
+    "val_rec": val_recs,
+    "val_pre": val_pres,
     "new_nodes_val_aps": new_nodes_val_aps,
     "test_ap": test_ap,
+    "test_acc": test_acc,
+    "test_rec": test_rec,
+    "test_pre": test_pre,
     "new_node_test_ap": nn_test_ap,
     "epoch_times": epoch_times,
     "train_losses": train_losses,

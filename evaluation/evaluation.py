@@ -11,7 +11,7 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
   assert negative_edge_sampler.seed is not None
   negative_edge_sampler.reset_random_state()
 
-  val_ap, val_auc = [], []
+  val_ap, val_auc, val_acc, val_rec, val_pre = [], [], [], [], []
   with torch.no_grad():
     model = model.eval()
     # While usually the test batch size is as big as it fits in memory, here we keep it the same
@@ -47,9 +47,14 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
       acc = accuracy_score(true_label, pred_label)
       pre = precision_score(true_label, pred_label)
       rec = recall_score(true_label, pred_label)
-      print('acc:{}, pre:{}, rec:{}'.format(acc, pre, rec))
+      val_acc.append(acc)
+      val_pre.append(pre)
+      val_rec.append(rec)
 
-  return np.mean(val_ap), np.mean(val_auc)
+
+      #print('acc:{}, pre:{}, rec:{}'.format(acc, pre, rec))
+
+  return np.mean(val_ap), np.mean(val_auc), np.mean(val_acc), np.mean(val_rec), np.mean(val_pre)
 
 
 def eval_node_classification(tgn, decoder, data, edge_idxs, batch_size, n_neighbors):
@@ -79,12 +84,13 @@ def eval_node_classification(tgn, decoder, data, edge_idxs, batch_size, n_neighb
       pred_prob[s_idx: e_idx] = pred_prob_batch.cpu().numpy()
 
   pred_label = [int(n + 0.5) for n in pred_prob]
+
   acc = accuracy_score(data.labels, pred_label)
   pre = precision_score(data.labels, pred_label)
   rec = recall_score(data.labels, pred_label)
-  print('acc:{}, pre:{}, rec:{}'.format(acc, pre, rec))
+  #print('acc:{}, pre:{}, rec:{}'.format(acc, pre, rec))
   cm = confusion_matrix(data.labels, pred_label)
-  print('confusion matrix', cm)
+  #print('confusion matrix', cm)
   #print(data.labels.shape, pred_prob.shape, pred_prob)
   auc_roc = roc_auc_score(data.labels, pred_prob)
-  return auc_roc
+  return auc_roc, acc, pre, rec, cm
