@@ -85,6 +85,47 @@ def eval_node_classification(tgn, decoder, data, edge_idxs, batch_size, n_neighb
 
   pred_label = [int(n + 0.5) for n in pred_prob]
 
+<<<<<<< Updated upstream
+=======
+      pred_prob_batch = np.array([decoder(source_embedding).sigmoid().cpu().numpy() for decoder in decoders])
+      #pred_prob_num[s_idx: e_idx] = np.sum(pred_prob_batch >= 0.5, axis=0)
+      pred_prob[s_idx: e_idx] = np.mean(pred_prob_batch, axis=0)
+      '''    # rank start
+  n_decoder = len(decoders)
+
+  pred_rank_index = pred_prob.argsort()[-min(num_instance, 2*data.n_pos):]
+  true_rank_index = data.labels.argsort()[-min(num_instance, 2*data.n_pos):]
+  #pred_rank_label = [1 if n > (n_decoder / 2) else 0 for n in pred_prob_num[pred_rank_index]]
+  pred_rank_label = [0]*num_instance
+  for i in pred_rank_index:
+    pred_rank_label[i] = 1
+
+  print(pred_prob[pred_rank_index])
+  print("True pos probability:", pred_prob[true_rank_index])
+  
+
+  acc = accuracy_score(data.labels, pred_rank_label)
+  pre = precision_score(data.labels, pred_rank_label)
+  rec = recall_score(data.labels, pred_rank_label)
+  #print('acc:{}, pre:{}, rec:{}'.format(acc, pre, rec))
+  cm = confusion_matrix(data.labels, pred_rank_label)
+  #print('confusion matrix', cm)
+  #print(data.labels.shape, pred_prob.shape, pred_prob)
+  try:
+    auc_roc = roc_auc_score(data.labels, pred_prob[pred_rank_index])
+  except ValueError:
+    auc_roc = 0.0
+    # rank end
+
+  np.savetxt("./pred_prob.csv", pred_prob, delimiter=' ')
+  np.savetxt("./true_label.csv", data.labels, delimiter=' ')
+  ''' 
+  #pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
+  pred_label = [int(n+0.5) for n in pred_prob]
+  print(set(pred_label))
+  print(set(data.labels))
+  print(pred_prob[10:])
+>>>>>>> Stashed changes
   acc = accuracy_score(data.labels, pred_label)
   pre = precision_score(data.labels, pred_label)
   rec = recall_score(data.labels, pred_label)

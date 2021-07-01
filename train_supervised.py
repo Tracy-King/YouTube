@@ -72,6 +72,16 @@ except:
   parser.print_help()
   sys.exit(0)
 
+<<<<<<< Updated upstream
+=======
+args.use_memory = True
+#args.uniform = True
+#args.use_source_embedding_in_message = True
+#args.use_validation = True
+#args.use_destination_embedding_in_message = True
+
+
+>>>>>>> Stashed changes
 BATCH_SIZE = args.bs
 NUM_NEIGHBORS = args.n_degree
 NUM_NEG = 1
@@ -214,6 +224,7 @@ for i in range(args.n_runs):
                                                                                      NUM_NEIGHBORS)
 
       labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+<<<<<<< Updated upstream
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
       pred = decoder(source_embedding).sigmoid()
@@ -225,6 +236,44 @@ for i in range(args.n_runs):
 
     val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, BATCH_SIZE,
                                        n_neighbors=NUM_NEIGHBORS)
+=======
+      for decoder in decoders:
+        pred = decoder(source_embedding).sigmoid()
+        pos_count = np.count_nonzero(labels_batch)
+        neg_count = size - pos_count
+        pos_weight = neg_count / (pos_count + 1)
+        #print("pos_weight:{}".format(pos_weight))
+         # under sampling start
+        index = list(range(size))
+        sample_pos_index = []
+        for i in index:
+          if labels_batch[i]==1:
+            sample_pos_index.append(i)
+        if len(sample_pos_index) == 0:
+            continue
+        sample_neg_index = random.sample([i for i in index if i not in sample_pos_index],
+                                         min((len(sample_pos_index)+1), size-len(sample_pos_index)))
+        #sample_neg_index = random.sample([i for i in index if i not in sample_pos_index], (len(sample_pos_index) + 1))
+        sample_pos_index.extend(sample_neg_index)
+        random.shuffle(sample_pos_index)
+        sample_index = sample_pos_index
+        #print(len(sample_index))
+              # under sampling end
+        #pred_u = pred[sample_index].clone().detach().cpu().numpy()
+        #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]).to(device))
+        decoder_loss_criterion = torch.nn.BCELoss()
+        #decoder_loss_criterion = torch.nn.MSELoss()
+        #print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
+        decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+        #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
+        decoder_loss.backward()
+        decoder_optimizer.step()
+        loss += decoder_loss.item()
+    train_losses.append(loss / N_DECODERS)
+
+    val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoders, val_data, full_data.edge_idxs,
+                                                                          BATCH_SIZE, n_neighbors=NUM_NEIGHBORS)
+>>>>>>> Stashed changes
     val_aucs.append(val_auc)
     val_accs.append(val_acc)
     val_recs.append(val_rec)

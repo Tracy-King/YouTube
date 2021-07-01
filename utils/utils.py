@@ -94,7 +94,7 @@ def get_neighbor_finder(data, uniform, max_node_idx=None):
   for source, destination, edge_idx, timestamp in zip(data.sources, data.destinations,
                                                       data.edge_idxs,
                                                       data.timestamps):
-    #adj_list[source].append((destination, edge_idx, timestamp))
+    adj_list[source].append((destination, edge_idx, timestamp))
     adj_list[destination].append((source, edge_idx, timestamp))
 
   return NeighborFinder(adj_list, uniform=uniform)
