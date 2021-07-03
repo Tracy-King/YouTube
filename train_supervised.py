@@ -72,16 +72,16 @@ except:
   parser.print_help()
   sys.exit(0)
 
-<<<<<<< Updated upstream
-=======
 args.use_memory = True
-#args.uniform = True
+
+args.uniform = False
+
 #args.use_source_embedding_in_message = True
 #args.use_validation = True
 #args.use_destination_embedding_in_message = True
 
 
->>>>>>> Stashed changes
+
 BATCH_SIZE = args.bs
 NUM_NEIGHBORS = args.n_degree
 NUM_NEG = 1
@@ -224,7 +224,7 @@ for i in range(args.n_runs):
                                                                                      NUM_NEIGHBORS)
 
       labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
-<<<<<<< Updated upstream
+
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
       pred = decoder(source_embedding).sigmoid()
@@ -236,7 +236,7 @@ for i in range(args.n_runs):
 
     val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, BATCH_SIZE,
                                        n_neighbors=NUM_NEIGHBORS)
-=======
+
       for decoder in decoders:
         pred = decoder(source_embedding).sigmoid()
         pos_count = np.count_nonzero(labels_batch)
