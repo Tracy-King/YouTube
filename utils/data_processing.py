@@ -24,11 +24,8 @@ def get_data_node_classification(dataset_name, use_validation=False, tag='superc
     update_records = json.load(f)
   node_features = np.load('./dynamicGraph/ml_{}_node.npy'.format(dataset_name))
 
-  val_time, test_time = list(np.quantile(graph_df.ts, [0.70, 0.85]))
-=======
-  val_time, test_time = list(np.quantile(graph_df.ts, [0.95, 0.95]))
->>>>>>> Stashed changes
-  val_time, test_time = list(np.quantile(graph_df.ts, [0.90, 0.90]))
+
+  val_time, test_time = list(np.quantile(graph_df.ts, [0.85, 0.85]))
 
 
   sources = graph_df.u.values

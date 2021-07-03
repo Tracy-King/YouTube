@@ -57,13 +57,13 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
   return np.mean(val_ap), np.mean(val_auc), np.mean(val_acc), np.mean(val_rec), np.mean(val_pre)
 
 
-def eval_node_classification(tgn, decoder, data, edge_idxs, batch_size, n_neighbors):
+def eval_node_classification(tgn, decoders, data, edge_idxs, batch_size, n_neighbors):
   pred_prob = np.zeros(len(data.sources))
   num_instance = len(data.sources)
   num_batch = math.ceil(num_instance / batch_size)
 
   with torch.no_grad():
-    decoder.eval()
+    [decoder.eval() for decoder in decoders]
     tgn.eval()
     for k in range(num_batch):
       s_idx = k * batch_size
@@ -80,13 +80,12 @@ def eval_node_classification(tgn, decoder, data, edge_idxs, batch_size, n_neighb
                                                                                    timestamps_batch,
                                                                                    edge_idxs_batch,
                                                                                    n_neighbors)
-      pred_prob_batch = decoder(source_embedding).sigmoid()
-      pred_prob[s_idx: e_idx] = pred_prob_batch.cpu().numpy()
+      #pred_prob_batch = decoder(source_embedding).sigmoid()
+      #pred_prob[s_idx: e_idx] = pred_prob_batch.cpu().numpy()
 
-  pred_label = [int(n + 0.5) for n in pred_prob]
+      #pred_label = [int(n + 0.5) for n in pred_prob]
 
-<<<<<<< Updated upstream
-=======
+
       pred_prob_batch = np.array([decoder(source_embedding).sigmoid().cpu().numpy() for decoder in decoders])
       #pred_prob_num[s_idx: e_idx] = np.sum(pred_prob_batch >= 0.5, axis=0)
       pred_prob[s_idx: e_idx] = np.mean(pred_prob_batch, axis=0)
@@ -125,7 +124,7 @@ def eval_node_classification(tgn, decoder, data, edge_idxs, batch_size, n_neighb
   print(set(pred_label))
   print(set(data.labels))
   print(pred_prob[10:])
->>>>>>> Stashed changes
+
   acc = accuracy_score(data.labels, pred_label)
   pre = precision_score(data.labels, pred_label)
   rec = recall_score(data.labels, pred_label)

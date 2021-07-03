@@ -22,16 +22,19 @@ class MLP(torch.nn.Module):
   def __init__(self, dim, drop=0.3):
     super().__init__()
     self.fc_1 = torch.nn.Linear(dim, 80)
-    self.fc_2 = torch.nn.Linear(80, 10)
-    self.fc_3 = torch.nn.Linear(10, 1)
+    #self.fc_2 = torch.nn.Linear(80, 10)
+    self.fc_3 = torch.nn.Linear(80, 1)
+    torch.nn.init.xavier_normal_(self.fc_1.weight, gain=1)
+    torch.nn.init.xavier_normal_(self.fc_3.weight, gain=1)
+    self.bn_1 = torch.nn.BatchNorm1d(80)
     self.act = torch.nn.ReLU()
     self.dropout = torch.nn.Dropout(p=drop, inplace=False)
 
   def forward(self, x):
-    x = self.act(self.fc_1(x))
+    x = self.act(self.bn_1(self.fc_1(x)))
     x = self.dropout(x)
-    x = self.act(self.fc_2(x))
-    x = self.dropout(x)
+    #x = self.act(self.fc_2(x))
+    #x = self.dropout(x)
     return self.fc_3(x).squeeze(dim=1)
 
 

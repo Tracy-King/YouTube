@@ -22,14 +22,14 @@ torch.manual_seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='97DWg8tqo4M')
-parser.add_argument('--bs', type=int, default=100, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M', help='Prefix to name the checkpoints')
+                    default='97DWg8tqo4M_pi_12')
+parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
+parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
+parser.add_argument('--lr', type=float, default=5e-3, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.1, help='Dropout probability')
@@ -49,7 +49,7 @@ parser.add_argument('--aggregator', type=str, default="last", help='Type of mess
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')
 parser.add_argument('--message_dim', type=int, default=100, help='Dimensions of the messages')
-parser.add_argument('--memory_dim', type=int, default=172, help='Dimensions of the memory for '
+parser.add_argument('--memory_dim', type=int, default=128, help='Dimensions of the memory for '
                                                                 'each user')
 parser.add_argument('--different_new_nodes', action='store_true',
                     help='Whether to use disjoint set of new nodes for train and val')
@@ -80,7 +80,7 @@ args.uniform = False
 #args.use_validation = True
 #args.use_destination_embedding_in_message = True
 
-
+N_DECODERS = 5
 
 BATCH_SIZE = args.bs
 NUM_NEIGHBORS = args.n_degree
@@ -150,7 +150,7 @@ for i in range(args.n_runs):
 
   # Initialize Model
   tgn = TGN(neighbor_finder=train_ngh_finder, node_features=node_features,
-            edge_features=edge_features, update_records=update_records, device=device,
+            edge_features=edge_features, update_records=update_records, device=device, data=DATA,
             n_layers=NUM_LAYER,
             n_heads=NUM_HEADS, dropout=DROP_OUT, use_memory=USE_MEMORY,
             message_dimension=MESSAGE_DIM, memory_dimension=MEMORY_DIM,
@@ -178,9 +178,8 @@ for i in range(args.n_runs):
   logger.info('TGN models loaded')
   logger.info('Start training node classification task')
 
-  decoder = MLP(node_features.shape[1], drop=DROP_OUT)
-  decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=args.lr)
-  decoder = decoder.to(device)
+  decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
+  decoders = [decoder.to(device) for decoder in decoders]
 
 
   val_aucs = []
@@ -199,7 +198,7 @@ for i in range(args.n_runs):
       tgn.memory.__init_memory__()
 
     tgn = tgn.eval()
-    decoder = decoder.train()
+    decoders = [decoder.train() for decoder in decoders]
     loss = 0
     
     for k in range(num_batch):
@@ -214,7 +213,7 @@ for i in range(args.n_runs):
 
       size = len(sources_batch)
 
-      decoder_optimizer.zero_grad()
+
       with torch.no_grad():
         source_embedding, destination_embedding, _ = tgn.compute_temporal_embeddings(sources_batch,
                                                                                      destinations_batch,
@@ -224,7 +223,7 @@ for i in range(args.n_runs):
                                                                                      NUM_NEIGHBORS)
 
       labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
-
+      '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
       pred = decoder(source_embedding).sigmoid()
@@ -236,8 +235,10 @@ for i in range(args.n_runs):
 
     val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, BATCH_SIZE,
                                        n_neighbors=NUM_NEIGHBORS)
-
+        '''
       for decoder in decoders:
+        decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=args.lr)
+        decoder_optimizer.zero_grad()
         pred = decoder(source_embedding).sigmoid()
         pos_count = np.count_nonzero(labels_batch)
         neg_count = size - pos_count
@@ -260,7 +261,7 @@ for i in range(args.n_runs):
         #print(len(sample_index))
               # under sampling end
         #pred_u = pred[sample_index].clone().detach().cpu().numpy()
-        #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight]).to(device))
+        #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]).to(device))
         decoder_loss_criterion = torch.nn.BCELoss()
         #decoder_loss_criterion = torch.nn.MSELoss()
         #print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
@@ -273,7 +274,7 @@ for i in range(args.n_runs):
 
     val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoders, val_data, full_data.edge_idxs,
                                                                           BATCH_SIZE, n_neighbors=NUM_NEIGHBORS)
->>>>>>> Stashed changes
+
     val_aucs.append(val_auc)
     val_accs.append(val_acc)
     val_recs.append(val_rec)
@@ -309,7 +310,7 @@ for i in range(args.n_runs):
     logger.info(f'Loaded the best model at epoch {early_stopper.best_epoch} for inference')
     decoder.eval()
 
-    test_auc, test_acc, test_rec, test_pre, test_cm = eval_node_classification(tgn, decoder, test_data, full_data.edge_idxs, BATCH_SIZE,
+    test_auc, test_acc, test_rec, test_pre, test_cm = eval_node_classification(tgn, decoders, test_data, full_data.edge_idxs, BATCH_SIZE,
                                         n_neighbors=NUM_NEIGHBORS)
   else:
     # If we are not using a validation set, the test performance is just the performance computed

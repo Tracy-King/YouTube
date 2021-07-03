@@ -11,9 +11,11 @@ from modules.memory_updater import get_memory_updater
 from modules.embedding_module import get_embedding_module
 from model.time_encoding import TimeEncode, EdgeEncode
 
+import os
+
 
 class TGN(torch.nn.Module):
-  def __init__(self, neighbor_finder, node_features, edge_features, update_records, device, n_layers=2,
+  def __init__(self, neighbor_finder, node_features, edge_features, update_records, device, data, n_layers=2,
                n_heads=2, dropout=0.1, use_memory=False,
                memory_update_at_start=True, message_dimension=100,
                memory_dimension=500, embedding_module_type="graph_attention",
@@ -30,6 +32,7 @@ class TGN(torch.nn.Module):
     self.neighbor_finder = neighbor_finder
     self.device = device
     self.logger = logging.getLogger(__name__)
+    self.data = data
 
     self.update_records = update_records
     #print('update_records length:', len(update_records))
@@ -117,22 +120,30 @@ class TGN(torch.nn.Module):
                                      1)
 
   def edge_feature_initiate(self):
-    batch_size = 1000
-    result = 0
-    for batch in range(0, self.n_edges, batch_size):
-      end = min(self.n_edges, batch+batch_size)
-      n_batch = end - batch
-      input_data = torch.from_numpy(self.edge_raw_features[batch:end].astype(np.float32)).to(self.device)
-      if batch == 0:
-        result = self.edge_encoder(input_data).view(n_batch, -1)
-      else:
-        tmp = self.edge_encoder(input_data).view(n_batch, -1)
-        result = torch.cat((result, tmp), dim=0)
-        #result = np.vstack((result, tmp))
+    if os.path.exists('./dynamicGraph/edge_feature_{}.npy'.format(self.data)):
+      self.edge_raw_features = np.load('./dynamicGraph/edge_feature_{}.npy'.format(self.data))
+      self.n_edge_feature = self.edge_raw_features.shape[1]
+      print("Edge feature loaded!")
+    else:
+      print('Edge feature not founded. Computing...')
+      batch_size = 1000
+      result = 0
+      for batch in range(0, self.n_edges, batch_size):
+        end = min(self.n_edges, batch+batch_size)
+        n_batch = end - batch
+        input_data = torch.from_numpy(self.edge_raw_features[batch:end].astype(np.float32)).to(self.device)
+        if batch == 0:
+          result = self.edge_encoder(input_data).view(n_batch, -1)
+        else:
+          tmp = self.edge_encoder(input_data).view(n_batch, -1)
+          result = torch.cat((result, tmp), dim=0)
+          #result = np.vstack((result, tmp))
 
-    self.edge_raw_features = result.cpu().detach().numpy()
-    self.n_edge_features = self.edge_raw_features.shape[1]
-    torch.cuda.empty_cache()
+      self.edge_raw_features = result.cpu().detach().numpy()
+      self.n_edge_features = self.edge_raw_features.shape[1]
+      torch.cuda.empty_cache()
+      np.save('./dynamicGraph/edge_feature_{}.npy'.format(self.data))
+      print("Edge feature saved!")
 
     assert self.edge_raw_features.shape[0] == self.n_edges
     #print("n_edges:", self.n_edges, "n_edge_feature:", self.n_edge_features)
@@ -365,7 +376,7 @@ class TGN(torch.nn.Module):
   def get_raw_messages(self, source_nodes, source_node_embedding, destination_nodes,
                        destination_node_embedding, edge_times, edge_idxs):
     edge_times = torch.from_numpy(edge_times).float().to(self.device)
-    edge_features = torch.from_numpy(self.edge_raw_features[edge_idxs].astype(np.float32)).to(device)
+    edge_features = torch.from_numpy(self.edge_raw_features[edge_idxs].astype(np.float32)).to(self.device)
 
     source_memory = self.memory.get_memory(source_nodes) if not \
       self.use_source_embedding_in_message else source_node_embedding
