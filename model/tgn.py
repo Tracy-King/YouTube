@@ -65,6 +65,7 @@ class TGN(torch.nn.Module):
 
     self.edge_feature_initiate()
     #print("type of self.edge_raw_feature", type(self.edge_raw_features))
+    self.embedding_dict = dict()
 
     self.memory = None
 
@@ -142,12 +143,28 @@ class TGN(torch.nn.Module):
       self.edge_raw_features = result.cpu().detach().numpy()
       self.n_edge_features = self.edge_raw_features.shape[1]
       torch.cuda.empty_cache()
-      np.save('./dynamicGraph/edge_feature_{}.npy'.format(self.data))
+      np.save('./dynamicGraph/edge_feature_{}.npy'.format(self.data), self.edge_raw_features)
       print("Edge feature saved!")
 
     assert self.edge_raw_features.shape[0] == self.n_edges
     #print("n_edges:", self.n_edges, "n_edge_feature:", self.n_edge_features)
 
+  def update_old_embeddings(self):
+    nodes = []
+    embeddings = 0
+    flag = 1
+    for k, v in self.embedding_dict.items():
+      nodes.append(k)
+      if flag == 1:
+        embeddings = v
+        flag -= 1
+      else:
+        #embeddings = torch.cat([embeddings, v], dim=0)
+        embeddings = np.vstack((embeddings, v))
+
+    self.embedding_module.update_old_embeddings(np.array(nodes), embeddings)
+    self.embedding_dict.clear()
+    return
 
   def update_node_features(self, node_idx, records_idx):
     self.node_raw_features[node_idx] = np.array(self.update_records[str(records_idx)]).astype(np.float32)
@@ -267,7 +284,7 @@ class TGN(torch.nn.Module):
     self.embedding_module.update_node_features(updated_node_raw_features=self.node_raw_features)
     #print(type(node_features))
     # Compute the embeddings using the embedding module
-    node_embedding = self.embedding_module.compute_embedding(memory=memory,
+    node_embedding = self.embedding_module.compute_embeddingv2(memory=memory,
                                                              source_node_raw_features=node_features,
                                                              source_nodes=nodes,
                                                              timestamps=timestamps,
@@ -278,6 +295,15 @@ class TGN(torch.nn.Module):
     source_node_embedding = node_embedding[:n_samples]
     destination_node_embedding = node_embedding[n_samples: 2 * n_samples]
     negative_node_embedding = node_embedding[2 * n_samples:]
+
+    for idx in range(len(source_nodes)-1, -1, -1):
+      if source_nodes[idx] not in self.embedding_dict.keys():
+        self.embedding_dict[source_nodes[idx]] = source_node_embedding[idx].clone().detach().cpu().numpy()
+      if destination_nodes[idx] not in self.embedding_dict.keys():
+        self.embedding_dict[destination_nodes[idx]] = destination_node_embedding[idx].clone().detach().cpu().numpy()
+    #print(self.embedding_dict.keys())
+    self.embedding_module.update_old_embeddings(np.unique(np.concatenate([source_nodes, destination_nodes])), self.embedding_dict)
+    self.embedding_dict.clear()
 
     if self.use_memory:
       if self.memory_update_at_start:
@@ -340,6 +366,7 @@ class TGN(torch.nn.Module):
                                            negative_node_embedding])).squeeze(dim=0)
     pos_score = score[:n_samples]
     neg_score = score[n_samples:]
+
 
     return pos_score.sigmoid(), neg_score.sigmoid()
 

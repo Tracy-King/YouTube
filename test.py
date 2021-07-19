@@ -16,12 +16,17 @@ a = [0, 1, 2]
 
 print(np.tile(a, (2, 1)))
 
-root = 'tgn-attn-97DWg8tqo4M'
 
-data = pickle.load(open('results/{}.pkl'.format(root), 'rb'))
+a = torch.tensor([0, float('nan'), float('inf'), float('-inf')])
+b = torch.tensor([0, 1, 2, 3])
 
+t = torch.isfinite(b)
 
-print(json.dumps(data, sort_keys=True, indent=4))
+print(t)
+
+print(torch.nonzero(t))
+
+print((t==False).nonzero().shape[0])
 
 #data = pd.read_csv('src/sc_data3.csv')
 

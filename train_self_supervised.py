@@ -19,12 +19,12 @@ np.random.seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='97DWg8tqo4M')
+                    default='97DWg8tqo4M_pi_12')
 parser.add_argument('--bs', type=int, default=200, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M', help='Prefix to name the checkpoints')
+parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
-parser.add_argument('--n_epoch', type=int, default=20, help='Number of epochs')
+parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
@@ -63,7 +63,7 @@ parser.add_argument('--use_source_embedding_in_message', action='store_true',
 parser.add_argument('--dyrep', action='store_true',
                     help='Whether to run the dyrep model')
 
-
+#torch.autograd.set_detect_anomaly(True)
 try:
   args = parser.parse_args()
 except:
@@ -82,7 +82,7 @@ NUM_LAYER = args.n_layer
 LEARNING_RATE = args.lr
 NODE_DIM = args.node_dim
 TIME_DIM = args.time_dim
-USE_MEMORY = args.use_memory
+USE_MEMORY = False#args.use_memory
 MESSAGE_DIM = args.message_dim
 MEMORY_DIM = args.memory_dim
 
@@ -145,7 +145,7 @@ for i in range(args.n_runs):
 
   # Initialize Model
   tgn = TGN(neighbor_finder=train_ngh_finder, node_features=node_features,
-            edge_features=edge_features, update_records=update_records, device=device,
+            edge_features=edge_features, update_records=update_records, device=device, data=DATA,
             n_layers=NUM_LAYER,
             n_heads=NUM_HEADS, dropout=DROP_OUT, use_memory=USE_MEMORY,
             message_dimension=MESSAGE_DIM, memory_dimension=MEMORY_DIM,
@@ -225,6 +225,10 @@ for i in range(args.n_runs):
         pos_prob, neg_prob = tgn.compute_edge_probabilities(sources_batch, destinations_batch, negatives_batch,
                                                             timestamps_batch, edge_idxs_batch, NUM_NEIGHBORS)
         #print('pos_prob.squeeze: {} \t neg_prob.squeeze {}'.format(pos_prob.squeeze().shape, neg_prob.squeeze().shape))
+        if (torch.isfinite(pos_prob)==False).nonzero().shape[0] != 0:
+          print('max and min and inf of pos_prob: ', min(pos_prob), max(pos_prob), (torch.isfinite(pos_prob)==False).nonzero().shape[0])
+        if (torch.isfinite(neg_prob)==False).nonzero().shape[0] != 0:
+          print('max and min and inf of neg_prob: ', min(neg_prob), max(neg_prob), (torch.isfinite(neg_prob)==False).nonzero().shape[0])
         loss += criterion(pos_prob.squeeze(), pos_label) + criterion(neg_prob.squeeze(), neg_label)
 
       loss /= args.backprop_every
@@ -232,6 +236,8 @@ for i in range(args.n_runs):
       loss.backward(retain_graph=True)
       optimizer.step()
       m_loss.append(loss.item())
+
+
 
       # Detach memory after 'args.backprop_every' number of batches so we don't backpropagate to
       # the start of time

@@ -24,8 +24,8 @@ parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='97DWg8tqo4M_pi_12')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12', help='Prefix to name the checkpoints')
-parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
+parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_v2', help='Prefix to name the checkpoints')
+parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
@@ -72,7 +72,7 @@ except:
   parser.print_help()
   sys.exit(0)
 
-args.use_memory = True
+#args.use_memory = True
 
 args.uniform = False
 
@@ -265,6 +265,9 @@ for i in range(args.n_runs):
         decoder_loss_criterion = torch.nn.BCELoss()
         #decoder_loss_criterion = torch.nn.MSELoss()
         #print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
+        if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
+          print('max and min and inf of pos_prob: ', min(pred), max(pred), (torch.isfinite(pred)==False).nonzero().shape[0])
+
         decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
         #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
         decoder_loss.backward()
