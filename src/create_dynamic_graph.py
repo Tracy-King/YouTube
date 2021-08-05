@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 import codecs
 import json
+import os
 
 pd.set_option('display.width', None)
 
@@ -186,14 +187,24 @@ def save_file(df, video_id, update_records, feat_n):
 
 if __name__ == '__main__':
     root = '..\embedding'
-    video_id = '97DWg8tqo4M'
+    #video_id = '97DWg8tqo4M'
+    video_id_list = []
     channel_id = 'UC1opHUrw8rvnsadT-iGp7Cg'
+    g = os.walk('{}\{}'.format(root, channel_id))
+    for path, dir_list, file_list in g:
+      for file_name in file_list:
+        print(file_name[:-4])
+        if file_name[-3:] == 'csv':
+          video_id_list.append(file_name[:-4])
+    print("videos num:", len(video_id_list))
     #savemodel = 'train.model'
     window = 30
     thrs = math.cos(math.pi/6)
-    data = pd.read_csv('..\embedding\{}\{}.csv'.format(channel_id, video_id), na_values='0.0', keep_default_na=False)
-    emb = np.load('..\embedding\{}\{}.npy'.format(channel_id, video_id))
-    print(data.info())
+
+    for video_id in video_id_list:
+        data = pd.read_csv('..\embedding\{}\{}.csv'.format(channel_id, video_id), na_values='0.0', keep_default_na=False)
+        emb = np.load('..\embedding\{}\{}.npy'.format(channel_id, video_id))
+        print(data.info())
 
     #video_list, video_groups = video_separate(data)
     #dynamic_graph_create(video_list, video_groups, window, thrs)
@@ -201,29 +212,24 @@ if __name__ == '__main__':
 
     #print(data['superchat'].drop_duplicates().tolist())
 
-    #data = time_window_separate(data, emb, window, thrs)
+        data = time_window_separate(data, emb, window, thrs)
     #data.to_csv('../dynamicGraph/{}_dynamic_graph.csv'.format(video_id))
-    #data.to_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
-    new_data = pd.read_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
-    print(new_data.info())
+        data.to_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
+        new_data = pd.read_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
+        print(new_data.info())
     #print(data)
     #print(data[(data['video_id']=='277076677') & (data['commenter_id']=='113567493')])
-    df, feat_n, update_records, node_dict = preprocess(new_data, video_id, channel_id)
+        df, feat_n, update_records, node_dict = preprocess(new_data, video_id, channel_id)
 
     #print(df['superchat'].drop_duplicates())
     #print(df['membership'].drop_duplicates())
 
-    save_file(df, video_id, update_records, feat_n)
+        save_file(df, video_id, update_records, feat_n)
 
-    with open('..\dynamicGraph\ml_{}.json'.format(video_id), 'r', encoding='UTF-8') as f:
-        update_records = json.load(f)
+        with open('..\dynamicGraph\ml_{}.json'.format(video_id), 'r', encoding='UTF-8') as f:
+            update_records = json.load(f)
 
-    for k, v in update_records.items():
-        print(k, v)
-        print(type(v), len(v))
-        break
-
-    print(len(update_records))
+        print(len(update_records))
 
 
 

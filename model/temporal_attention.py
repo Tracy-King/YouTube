@@ -48,9 +48,9 @@ class TemporalAttentionLayer(torch.nn.Module):
     attn_output_weights: [batch_size, 1, n_neighbors]
     """
 
-    #src_node_features_unrolled = torch.unsqueeze(src_node_features, dim=1)
-    src_node_old_embedding_unrolled = torch.unsqueeze(src_node_old_embedding, dim=1)
-    query = torch.cat([src_node_old_embedding_unrolled, src_time_features], dim=2)
+    src_node_features_unrolled = torch.unsqueeze(src_node_features, dim=1)
+    #src_node_old_embedding_unrolled = torch.unsqueeze(src_node_old_embedding, dim=1)
+    query = torch.cat([src_node_features_unrolled, src_time_features], dim=2)
     key = torch.cat([neighbors_features, edge_features, neighbors_time_features], dim=2)
 
     # print(neighbors_features.shape, edge_features.shape, neighbors_time_features.shape)
@@ -86,6 +86,6 @@ class TemporalAttentionLayer(torch.nn.Module):
     attn_output_weights = attn_output_weights.masked_fill(invalid_neighborhood_mask, 0)
 
     # Skip connection with temporal attention over neighborhood and the features of the node itself
-    attn_output = self.merger(attn_output, src_node_features)
+    attn_output = self.merger(attn_output, src_node_old_embedding)
 
     return attn_output, attn_output_weights

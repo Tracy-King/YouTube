@@ -23,6 +23,8 @@ torch.manual_seed(0)
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='97DWg8tqo4M_pi_12')
+parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
+                    default=9)
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
@@ -80,7 +82,7 @@ args.uniform = False
 #args.use_validation = True
 #args.use_destination_embedding_in_message = True
 
-N_DECODERS = 7
+N_DECODERS = args.n_decoder
 
 BATCH_SIZE = args.bs
 NUM_NEIGHBORS = args.n_degree
@@ -104,21 +106,21 @@ MEMORY_DIM = args.memory_dim
 
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
-MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}' + '\
-  node-classification.pth'
+MODEL_SAVE_PATH = f"./saved_models/{args.prefix}-{args.data}" + "\
+  node-classification.pth"
 get_checkpoint_path = lambda \
-    epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-{epoch}' + '\
-  node-classification.pth'
+    epoch: f"./saved_checkpoints/{args.prefix}-{args.data}-{epoch}" + "\
+  node-classification.pth"
 
 ### set up logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler('log/{}.log'.format(str(time.time())))
+fh = logging.FileHandler("log/{}.log".format(str(time.time())))
 fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.WARN)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 fh.setFormatter(formatter)
 ch.setFormatter(formatter)
 logger.addHandler(fh)
@@ -135,7 +137,7 @@ max_idx = max(full_data.unique_nodes)
 train_ngh_finder = get_neighbor_finder(train_data, uniform=UNIFORM, max_node_idx=max_idx)
 
 # Set device
-device_string = 'cuda:{}'.format(GPU) if torch.cuda.is_available() else 'cpu'
+device_string = "cuda:{}".format(GPU) if torch.cuda.is_available() else "cpu"
 device = torch.device(device_string)
 
 # Compute time statistics
@@ -168,15 +170,15 @@ for i in range(args.n_runs):
   num_instance = len(train_data.sources)
   num_batch = math.ceil(num_instance / BATCH_SIZE)
   
-  logger.debug('Num of training instances: {}'.format(num_instance))
-  logger.debug('Num of batches per epoch: {}'.format(num_batch))
+  logger.debug("Num of training instances: {}".format(num_instance))
+  logger.debug("Num of batches per epoch: {}".format(num_batch))
 
-  logger.info('Loading saved TGN model')
-  model_path = f'./saved_models/{args.prefix}-{DATA}.pth'
+  logger.info("Loading saved TGN model")
+  model_path = f"./saved_models/{args.prefix}-{DATA}.pth"
   tgn.load_state_dict(torch.load(model_path))
   tgn.eval()
-  logger.info('TGN models loaded')
-  logger.info('Start training node classification task')
+  logger.info("TGN models loaded")
+  logger.info("Start training node classification task")
 
   decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
   decoders = [decoder.to(device) for decoder in decoders]
@@ -266,7 +268,7 @@ for i in range(args.n_runs):
         #decoder_loss_criterion = torch.nn.MSELoss()
         #print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
         if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
-          print('max and min and inf of pos_prob: ', min(pred), max(pred), (torch.isfinite(pred)==False).nonzero().shape[0])
+          print("max and min and inf of pos_prob: ", min(pred), max(pred), (torch.isfinite(pred)==False).nonzero().shape[0])
 
         decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
         #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
@@ -296,21 +298,21 @@ for i in range(args.n_runs):
       "new_nodes_val_aps": [],
     }, open(results_path, "wb"))
 
-    logger.info(f'Epoch {epoch}: train loss: {loss / num_batch}, val auc: {val_auc}, val acc: {val_acc}, '
-                f'val rec: {val_rec}, val pre: {val_pre}, val cm: {val_cm}, time: {time.time() - start_epoch}')
+    logger.info(f"Epoch {epoch}: train loss: {loss / num_batch}, val auc: {val_auc}, val acc: {val_acc}, "
+                f"val rec: {val_rec}, val pre: {val_pre}, val cm: {val_cm}, time: {time.time() - start_epoch}")
   
   if args.use_validation:
     if early_stopper.early_stop_check(val_auc):
-      logger.info('No improvement over {} epochs, stop training'.format(early_stopper.max_round))
+      logger.info("No improvement over {} epochs, stop training".format(early_stopper.max_round))
       break
     else:
       torch.save(decoder.state_dict(), get_checkpoint_path(epoch))
 
   if args.use_validation:
-    logger.info(f'Loading the best model at epoch {early_stopper.best_epoch}')
+    logger.info(f"Loading the best model at epoch {early_stopper.best_epoch}")
     best_model_path = get_checkpoint_path(early_stopper.best_epoch)
     decoder.load_state_dict(torch.load(best_model_path))
-    logger.info(f'Loaded the best model at epoch {early_stopper.best_epoch} for inference')
+    logger.info(f"Loaded the best model at epoch {early_stopper.best_epoch} for inference")
     decoder.eval()
 
     test_auc, test_acc, test_rec, test_pre, test_cm = eval_node_classification(tgn, decoders, test_data, full_data.edge_idxs, BATCH_SIZE,
@@ -341,5 +343,5 @@ for i in range(args.n_runs):
     "new_node_test_ap": 0,
   }, open(results_path, "wb"))
 
-  logger.info(f'test auc: {test_auc},val acc: {test_acc}, '
-                f'val rec: {test_rec}, val pre: {test_pre}, val cm: {val_cm}')
+  logger.info(f"test auc: {test_auc},val acc: {test_acc}, "
+                f"val rec: {test_rec}, val pre: {test_pre}, val cm: {val_cm}")
