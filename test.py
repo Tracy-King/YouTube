@@ -16,17 +16,10 @@ a = [0, 1, 2]
 
 print(np.tile(a, (2, 1)))
 
-
-a = torch.tensor([0, float('nan'), float('inf'), float('-inf')])
-b = torch.tensor([0, 1, 2, 3])
-
-t = torch.isfinite(b)
-
-print(t)
-
-print(torch.nonzero(t))
-
-print((t==False).nonzero().shape[0])
+video_id = '97DWg8tqo4M'
+new_data = pd.read_pickle('dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
+end_time = new_data['Offset'].values[-1]
+print(end_time, type(end_time))
 
 #data = pd.read_csv('src/sc_data3.csv')
 

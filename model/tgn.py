@@ -130,6 +130,7 @@ class TGN(torch.nn.Module):
       batch_size = 1000
       result = 0
       for batch in range(0, self.n_edges, batch_size):
+        print("{}/{}".format(batch, self.n_edges))
         end = min(self.n_edges, batch+batch_size)
         n_batch = end - batch
         input_data = torch.from_numpy(self.edge_raw_features[batch:end].astype(np.float32)).to(self.device)

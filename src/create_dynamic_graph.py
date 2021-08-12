@@ -221,15 +221,18 @@ if __name__ == '__main__':
     #data.to_csv('../dynamicGraph/{}_dynamic_graph.csv'.format(video_id))
     #data.to_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
     data = 0
+    cnt = 1
     end_time = 0
     for video_id in concat_list:
       new_data = pd.read_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
-      if data == 0:
+      if cnt == 1:
+        cnt -= 1
         data = new_data
         end_time = data['Offset'][-1]
       else:
         new_data['Offset'].add(end_time+3600)
         data = pd.concat([data, new_data])
+        end_time = data['Offset'][-1]
 
     print(new_data.info())
 
