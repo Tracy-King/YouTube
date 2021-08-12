@@ -26,7 +26,7 @@ parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia 
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
                     default=9)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
-                    default='superchat')
+                    choices=['superchat', 'membership'], default='membership')
 parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
@@ -136,7 +136,7 @@ logger.info(args)
 torch.cuda.empty_cache()
 
 full_data, node_features, edge_features, update_records, train_data, val_data, test_data = \
-  get_data_node_classification(DATA, DATASET_R1, DATASET_R2, TAG, use_validation=args.use_validation)
+  get_data_node_classification(DATA, TAG, DATASET_R1, DATASET_R2, use_validation=args.use_validation)
 
 max_idx = max(full_data.unique_nodes)
 
