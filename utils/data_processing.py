@@ -17,7 +17,7 @@ class Data:
     self.n_unique_nodes = len(self.unique_nodes)
 
 
-def get_data_node_classification(dataset_name, use_validation=False, tag='superchat', binary=True):
+def get_data_node_classification(dataset_name, tag, dataset_r1, dataset_r2, use_validation=False, binary=True):
   ### Load data and train val test split
   graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
   with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
@@ -25,7 +25,7 @@ def get_data_node_classification(dataset_name, use_validation=False, tag='superc
   node_features = np.load('./dynamicGraph/ml_{}_node.npy'.format(dataset_name))
 
 
-  val_time, test_time = list(np.quantile(graph_df.ts, [0.95, 0.95]))
+  val_time, test_time = list(np.quantile(graph_df.ts, [dataset_r1, dataset_r2]))
 
 
   sources = graph_df.u.values
@@ -69,7 +69,7 @@ def get_data_node_classification(dataset_name, use_validation=False, tag='superc
   return full_data, node_features, edge_features, update_records, train_data, val_data, test_data
 
 
-def get_data(dataset_name, different_new_nodes_between_val_and_test=False, randomize_features=False, tag='superchat'):
+def get_data(dataset_name, tag, dataset_r1, dataset_r2, different_new_nodes_between_val_and_test=False, randomize_features=False):
   ### Load data and train val test split
   graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
   with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
@@ -80,7 +80,7 @@ def get_data(dataset_name, different_new_nodes_between_val_and_test=False, rando
   if randomize_features:
     node_features = np.random.rand(node_features.shape[0], node_features.shape[1])    # 随机初始node feature
 
-  val_time, test_time = list(np.quantile(graph_df.ts, [0.70, 0.85]))  # 取分位数0.7 0.85
+  val_time, test_time = list(np.quantile(graph_df.ts, [dataset_r1, dataset_r2]))  # 取分位数0.7 0.85
   sources = graph_df.u.values         # node u
   destinations = graph_df.i.values    # node i
   edge_idxs = graph_df.idx.values     # edge index

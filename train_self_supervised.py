@@ -20,6 +20,10 @@ np.random.seed(0)
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='97DWg8tqo4M_pi_12')
+parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
+                    default='superchat')
+parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
+parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=200, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
@@ -70,6 +74,10 @@ except:
   parser.print_help()
   sys.exit(0)
 
+
+DATASET_R1 = args.dataset_r1
+DATASET_R2 = args.dataset_r2
+TAG = args.label
 BATCH_SIZE = args.bs
 NUM_NEIGHBORS = args.n_degree
 NUM_NEG = 1

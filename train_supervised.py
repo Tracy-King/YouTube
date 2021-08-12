@@ -25,6 +25,10 @@ parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia 
                     default='97DWg8tqo4M_pi_12')
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
                     default=9)
+parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
+                    default='superchat')
+parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
+parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
@@ -82,8 +86,10 @@ args.uniform = False
 #args.use_validation = True
 #args.use_destination_embedding_in_message = True
 
+DATASET_R1 = args.dataset_r1
+DATASET_R2 = args.dataset_r2
 N_DECODERS = args.n_decoder
-
+TAG = args.label
 BATCH_SIZE = args.bs
 NUM_NEIGHBORS = args.n_degree
 NUM_NEG = 1
@@ -130,7 +136,7 @@ logger.info(args)
 torch.cuda.empty_cache()
 
 full_data, node_features, edge_features, update_records, train_data, val_data, test_data = \
-  get_data_node_classification(DATA, use_validation=args.use_validation)
+  get_data_node_classification(DATA, DATASET_R1, DATASET_R2, TAG, use_validation=args.use_validation)
 
 max_idx = max(full_data.unique_nodes)
 
