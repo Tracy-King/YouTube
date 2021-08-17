@@ -24,13 +24,13 @@ parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='97DWg8tqo4M_pi_12')
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=9)
+                    default=50)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='membership')
 parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_v2', help='Prefix to name the checkpoints')
+parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_original_encoder', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
@@ -71,6 +71,8 @@ parser.add_argument('--n_neg', type=int, default=1)
 parser.add_argument('--use_validation', action='store_true',
                     help='Whether to use a validation set')
 parser.add_argument('--new_node', action='store_true', help='model new node')
+parser.add_argument('--original_encoder', action='store_true', help='Use original TGN encoder')
+parser.add_argument('--original_decoder', action='store_true', help='Use original TGN decoder')
 
 try:
   args = parser.parse_args()
@@ -78,6 +80,9 @@ except:
   parser.print_help()
   sys.exit(0)
 
+
+args.original_encoder = True
+args.use_memory = args.original_encoder
 #args.use_memory = True
 
 args.uniform = False
@@ -88,7 +93,10 @@ args.uniform = False
 
 DATASET_R1 = args.dataset_r1
 DATASET_R2 = args.dataset_r2
-N_DECODERS = args.n_decoder
+if args.original_decoder:
+  N_DECODERS = 1
+else:
+  N_DECODERS = args.n_decoder
 TAG = args.label
 BATCH_SIZE = args.bs
 NUM_NEIGHBORS = args.n_degree
@@ -169,7 +177,8 @@ for i in range(args.n_runs):
             mean_time_shift_src=mean_time_shift_src, std_time_shift_src=std_time_shift_src,
             mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst,
             use_destination_embedding_in_message=args.use_destination_embedding_in_message,
-            use_source_embedding_in_message=args.use_source_embedding_in_message)
+            use_source_embedding_in_message=args.use_source_embedding_in_message,
+            original_encoder=args.original_encoder)
 
   tgn = tgn.to(device)
 
@@ -223,7 +232,15 @@ for i in range(args.n_runs):
 
 
       with torch.no_grad():
-        source_embedding, destination_embedding, _ = tgn.compute_temporal_embeddings(sources_batch,
+        if args.original_encoder:
+          source_embedding, destination_embedding, _ = tgn.compute_temporal_embeddings_origin(sources_batch,
+                                                                                         destinations_batch,
+                                                                                         destinations_batch,
+                                                                                         timestamps_batch,
+                                                                                         edge_idxs_batch,
+                                                                                         NUM_NEIGHBORS)
+        else:
+          source_embedding, destination_embedding, _ = tgn.compute_temporal_embeddings(sources_batch,
                                                                                      destinations_batch,
                                                                                      destinations_batch,
                                                                                      timestamps_batch,
@@ -274,7 +291,7 @@ for i in range(args.n_runs):
         #decoder_loss_criterion = torch.nn.MSELoss()
         #print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
         if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
-          #print("max and min and inf of pos_prob: ", min(pred), max(pred), (torch.isfinite(pred)==False).nonzero().shape[0])
+          print("max and min and inf of pos_prob: ", min(pred), max(pred), (torch.isfinite(pred)==False).nonzero().shape[0])
           pred = torch.nan_to_num(pred, posinf=1.0, neginf=0.0)
         decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
         #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)

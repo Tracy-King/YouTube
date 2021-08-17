@@ -228,11 +228,11 @@ if __name__ == '__main__':
       if cnt == 1:
         cnt -= 1
         data = new_data
-        end_time = data['Offset'][-1]
+        end_time = data['Offset'].values[-1]
       else:
         new_data['Offset'].add(end_time+3600)
         data = pd.concat([data, new_data])
-        end_time = data['Offset'][-1]
+        end_time = data['Offset'].values[-1]
 
     print(new_data.info())
 

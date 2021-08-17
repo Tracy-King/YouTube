@@ -3,7 +3,7 @@ from torch import nn
 import numpy as np
 import math
 
-from model.temporal_attention import TemporalAttentionLayer
+from model.temporal_attention import TemporalAttentionLayer, TemporalAttentionLayerOrigin
 
 
 class EmbeddingModule(nn.Module):
@@ -81,7 +81,7 @@ class TimeEmbedding(EmbeddingModule):
 class GraphEmbedding(EmbeddingModule):
   def __init__(self, node_features, edge_features, update_records, memory, neighbor_finder, time_encoder, n_layers,
                n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
-               n_heads=2, dropout=0.1, use_memory=True):
+               n_heads=2, dropout=0.1, use_memory=True, original_encoder=False):
     super(GraphEmbedding, self).__init__(node_features, edge_features, update_records, memory,
                                          neighbor_finder, time_encoder, n_layers,
                                          n_node_features, n_edge_features, n_time_features,
@@ -89,6 +89,7 @@ class GraphEmbedding(EmbeddingModule):
 
     self.use_memory = use_memory
     self.device = device
+
 
   def compute_embedding(self, memory, source_nodes, source_node_raw_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
                         use_time_proj=True):
@@ -112,7 +113,7 @@ class GraphEmbedding(EmbeddingModule):
     source_node_features = source_node_raw_features
 
     if self.use_memory:
-      source_node_features = memory[source_nodes, :] + source_node_raw_features
+      source_node_features = memory[source_nodes, :] + source_node_features
 
     if n_layers == 0:
       return source_node_features
@@ -147,7 +148,7 @@ class GraphEmbedding(EmbeddingModule):
 
       mask = neighbors_torch == 0
 
-      source_embedding = self.aggregate(n_layers, source_node_features,
+      source_embedding = self.aggregate_origin(n_layers, source_node_features,
                                         source_nodes_time_embedding,
                                         neighbor_embeddings,
                                         edge_time_embeddings,
@@ -230,6 +231,10 @@ class GraphEmbedding(EmbeddingModule):
                 edge_time_embeddings, edge_features, mask):
     return None
 
+  def aggregate_origin(self, n_layers, source_node_features, source_nodes_time_embedding,
+                neighbor_embeddings, edge_time_embeddings, edge_features, mask):
+    return None
+
 
 class GraphSumEmbedding(GraphEmbedding):
   def __init__(self, node_features, edge_features, update_records,  memory, neighbor_finder, time_encoder, n_layers,
@@ -274,7 +279,7 @@ class GraphSumEmbedding(GraphEmbedding):
 class GraphAttentionEmbedding(GraphEmbedding):
   def __init__(self, node_features, edge_features, update_records, memory, neighbor_finder, time_encoder, n_layers,
                n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
-               n_heads=2, dropout=0.1, use_memory=True):
+               n_heads=2, dropout=0.1, use_memory=True, original_encoder=False):
     super(GraphAttentionEmbedding, self).__init__(node_features, edge_features, update_records, memory,
                                                   neighbor_finder, time_encoder, n_layers,
                                                   n_node_features, n_edge_features,
@@ -283,16 +288,28 @@ class GraphAttentionEmbedding(GraphEmbedding):
                                                   n_heads, dropout,
                                                   use_memory)
 
-    self.attention_models = torch.nn.ModuleList([TemporalAttentionLayer(
-      n_node_features=n_node_features,
-      n_node_old_embedding=self.n_node_old_embedding,
-      n_neighbors_features=n_node_features,
-      n_edge_features=n_edge_features,
-      time_dim=n_time_features,
-      n_head=n_heads,
-      dropout=dropout,
-      output_dimension=n_node_features)
-      for _ in range(n_layers)])
+
+    if original_encoder:
+      self.attention_models = torch.nn.ModuleList([TemporalAttentionLayerOrigin(
+        n_node_features=n_node_features,
+        n_neighbors_features=n_node_features,
+        n_edge_features=n_edge_features,
+        time_dim=n_time_features,
+        n_head=n_heads,
+        dropout=dropout,
+        output_dimension=n_node_features)
+        for _ in range(n_layers)])
+    else:
+      self.attention_models = torch.nn.ModuleList([TemporalAttentionLayer(
+        n_node_features=n_node_features,
+        n_node_old_embedding=self.n_node_old_embedding,
+        n_neighbors_features=n_node_features,
+        n_edge_features=n_edge_features,
+        time_dim=n_time_features,
+        n_head=n_heads,
+        dropout=dropout,
+        output_dimension=n_node_features)
+        for _ in range(n_layers)])
 
   def aggregate(self, n_layer, source_node_features, source_node_old_embedding, source_nodes_time_embedding,
                 neighbor_embeddings,
@@ -309,12 +326,25 @@ class GraphAttentionEmbedding(GraphEmbedding):
 
     return source_embedding
 
+  def aggregate_origin(self, n_layer, source_node_features, source_nodes_time_embedding,
+                neighbor_embeddings,
+                edge_time_embeddings, edge_features, mask):
+      attention_model = self.attention_models[n_layer - 1]
+
+      source_embedding, _ = attention_model(source_node_features,
+                                            source_nodes_time_embedding,
+                                            neighbor_embeddings,
+                                            edge_time_embeddings,
+                                            edge_features,
+                                            mask)
+
+      return source_embedding
 
 def get_embedding_module(module_type, node_features, edge_features, update_records, memory, neighbor_finder,
                          time_encoder, n_layers, n_node_features, n_edge_features, n_time_features,
                          embedding_dimension, device,
                          n_heads=2, dropout=0.1, n_neighbors=None,
-                         use_memory=True):
+                         use_memory=True, original_encoder=False):
   if module_type == "graph_attention":
     return GraphAttentionEmbedding(node_features=node_features,
                                     edge_features=edge_features,
@@ -328,7 +358,7 @@ def get_embedding_module(module_type, node_features, edge_features, update_recor
                                     n_time_features=n_time_features,
                                     embedding_dimension=embedding_dimension,
                                     device=device,
-                                    n_heads=n_heads, dropout=dropout, use_memory=use_memory)
+                                    n_heads=n_heads, dropout=dropout, use_memory=use_memory, original_encoder=original_encoder)
   elif module_type == "graph_sum":
     return GraphSumEmbedding(node_features=node_features,
                               edge_features=edge_features,

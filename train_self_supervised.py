@@ -22,10 +22,10 @@ parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia 
                     default='97DWg8tqo4M_pi_12')
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     default='superchat')
-parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
-parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
+parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
+parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=200, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_v2', help='Prefix to name the checkpoints')
+parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_original_encoder', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
@@ -52,7 +52,7 @@ parser.add_argument('--aggregator', type=str, default="last", help='Type of mess
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')
 parser.add_argument('--message_dim', type=int, default=100, help='Dimensions of the messages')
-parser.add_argument('--memory_dim', type=int, default=172, help='Dimensions of the memory for '
+parser.add_argument('--memory_dim', type=int, default=128, help='Dimensions of the memory for '
                                                                 'each user')
 parser.add_argument('--different_new_nodes', action='store_true',
                     help='Whether to use disjoint set of new nodes for train and val')
@@ -66,6 +66,8 @@ parser.add_argument('--use_source_embedding_in_message', action='store_true',
                     help='Whether to use the embedding of the source node as part of the message')
 parser.add_argument('--dyrep', action='store_true',
                     help='Whether to run the dyrep model')
+parser.add_argument('--original_encoder', action='store_true', help='Use original TGN encoder')
+parser.add_argument('--original_decoder', action='store_true', help='Use original TGN decoder')
 
 #torch.autograd.set_detect_anomaly(True)
 try:
@@ -74,6 +76,8 @@ except:
   parser.print_help()
   sys.exit(0)
 
+args.original_encoder = True
+args.use_memory = args.original_encoder
 
 DATASET_R1 = args.dataset_r1
 DATASET_R2 = args.dataset_r2
@@ -90,7 +94,7 @@ NUM_LAYER = args.n_layer
 LEARNING_RATE = args.lr
 NODE_DIM = args.node_dim
 TIME_DIM = args.time_dim
-USE_MEMORY = False#args.use_memory
+USE_MEMORY = args.use_memory
 MESSAGE_DIM = args.message_dim
 MEMORY_DIM = args.memory_dim
 
@@ -118,7 +122,7 @@ logger.info(args)
 
 ### Extract data for training, validation and testing
 node_features, edge_features, update_records, full_data, train_data, val_data, test_data, \
-         new_node_val_data, new_node_test_data = get_data(DATA,
+         new_node_val_data, new_node_test_data = get_data(DATA, TAG, DATASET_R1, DATASET_R2,
                               different_new_nodes_between_val_and_test=args.different_new_nodes, randomize_features=args.randomize_features)
 
 # Initialize training neighbor finder to retrieve temporal graph
@@ -167,7 +171,8 @@ for i in range(args.n_runs):
             mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst,
             use_destination_embedding_in_message=args.use_destination_embedding_in_message,
             use_source_embedding_in_message=args.use_source_embedding_in_message,
-            dyrep=args.dyrep)
+            dyrep=args.dyrep,
+            original_encoder=args.original_encoder)
   criterion = torch.nn.BCELoss()
   optimizer = torch.optim.Adam(tgn.parameters(), lr=LEARNING_RATE)
   tgn = tgn.to(device)

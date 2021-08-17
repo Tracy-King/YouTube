@@ -30,7 +30,7 @@ def get_data_node_classification(dataset_name, tag, dataset_r1, dataset_r2, use_
 
   sources = graph_df.u.values
   destinations = graph_df.i.values
-  edge_idxs = graph_df.idx.values
+  edge_idxs = graph_df.index.values
   #labels = graph_df.label.values
 
   if tag == 'superchat':
@@ -47,6 +47,7 @@ def get_data_node_classification(dataset_name, tag, dataset_r1, dataset_r2, use_
   timestamps = graph_df.ts.values
 
   edge_features = np.array([[w, l] for w, l in zip(weight, length)])
+
 
   random.seed(2020)
 
@@ -83,7 +84,7 @@ def get_data(dataset_name, tag, dataset_r1, dataset_r2, different_new_nodes_betw
   val_time, test_time = list(np.quantile(graph_df.ts, [dataset_r1, dataset_r2]))  # 取分位数0.7 0.85
   sources = graph_df.u.values         # node u
   destinations = graph_df.i.values    # node i
-  edge_idxs = graph_df.idx.values     # edge index
+  edge_idxs = graph_df.index.values     # edge index
   if tag == 'superchat':
     labels = graph_df.superchat.values  # label superchat
   else:
