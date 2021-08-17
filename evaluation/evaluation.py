@@ -120,7 +120,10 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, batch_size, n_neigh
 
   np.savetxt("./pred_prob.csv", pred_prob, delimiter=' ')
   np.savetxt("./true_label.csv", data.labels, delimiter=' ')
-  ''' 
+  '''
+
+  if (np.isfinite(pred_prob)==False).nonzero()[0].shape[0] != 0:
+    pred_prob = np.nan_to_num(pred_prob, posinf=1.0, neginf=0.0) 
   #pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
   pred_label = [int(n+0.5) for n in pred_prob]
   print(set(pred_label))

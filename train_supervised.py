@@ -274,8 +274,8 @@ for i in range(args.n_runs):
         #decoder_loss_criterion = torch.nn.MSELoss()
         #print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
         if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
-          print("max and min and inf of pos_prob: ", min(pred), max(pred), (torch.isfinite(pred)==False).nonzero().shape[0])
-
+          #print("max and min and inf of pos_prob: ", min(pred), max(pred), (torch.isfinite(pred)==False).nonzero().shape[0])
+          pred = torch.nan_to_num(pred, posinf=1.0, neginf=0.0)
         decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
         #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
         decoder_loss.backward()
