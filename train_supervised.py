@@ -30,7 +30,7 @@ parser.add_argument('--label', type=str, help='Label type(eg. superchat or membe
 parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12_original_encoder', help='Prefix to name the checkpoints')
+parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
@@ -80,8 +80,8 @@ except:
   parser.print_help()
   sys.exit(0)
 
-
-args.original_encoder = True
+torch.autograd.set_detect_anomaly(True)
+#args.original_encoder = True
 args.use_memory = args.original_encoder
 #args.use_memory = True
 
@@ -265,36 +265,43 @@ for i in range(args.n_runs):
         decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=args.lr)
         decoder_optimizer.zero_grad()
         pred = decoder(source_embedding).sigmoid()
-        pos_count = np.count_nonzero(labels_batch)
-        neg_count = size - pos_count
-        pos_weight = neg_count / (pos_count + 1)
-        #print("pos_weight:{}".format(pos_weight))
-         # under sampling start
-        index = list(range(size))
-        sample_pos_index = []
-        for i in index:
-          if labels_batch[i]==1:
-            sample_pos_index.append(i)
-        if len(sample_pos_index) == 0:
-            continue
-        sample_neg_index = random.sample([i for i in index if i not in sample_pos_index],
-                                         min((len(sample_pos_index)+1), size-len(sample_pos_index)))
-        #sample_neg_index = random.sample([i for i in index if i not in sample_pos_index], (len(sample_pos_index) + 1))
-        sample_pos_index.extend(sample_neg_index)
-        random.shuffle(sample_pos_index)
-        sample_index = sample_pos_index
-        #print(len(sample_index))
-              # under sampling end
-        #pred_u = pred[sample_index].clone().detach().cpu().numpy()
-        #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]).to(device))
         decoder_loss_criterion = torch.nn.BCELoss()
-        #decoder_loss_criterion = torch.nn.MSELoss()
-        #print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
-        if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
-          print("max and min and inf of pos_prob: ", min(pred), max(pred), (torch.isfinite(pred)==False).nonzero().shape[0])
+        # decoder_loss_criterion = torch.nn.MSELoss()
+        # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
+        if (torch.isfinite(pred) == False).nonzero().shape[0] != 0:
+          print("max and min and inf of pos_prob: ", min(pred), max(pred),
+                  (torch.isfinite(pred) == False).nonzero().shape[0])
           pred = torch.nan_to_num(pred, posinf=1.0, neginf=0.0)
-        decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
-        #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
+        if TAG == 'superchat':
+          pos_count = np.count_nonzero(labels_batch)
+          neg_count = size - pos_count
+          pos_weight = neg_count / (pos_count + 1)
+          #print("pos_weight:{}".format(pos_weight))
+          # under sampling start
+          index = list(range(size))
+          sample_pos_index = []
+          for i in index:
+            if labels_batch[i]==1:
+              sample_pos_index.append(i)
+          if len(sample_pos_index) == 0:
+            continue
+          sample_neg_index = random.sample([i for i in index if i not in sample_pos_index],
+                                         min((len(sample_pos_index)+1), size-len(sample_pos_index)))
+          #sample_neg_index = random.sample([i for i in index if i not in sample_pos_index], (len(sample_pos_index) + 1))
+          sample_pos_index.extend(sample_neg_index)
+          random.shuffle(sample_pos_index)
+          sample_index = sample_pos_index
+          #print(len(sample_index))
+              # under sampling end
+          #pred_u = pred[sample_index].clone().detach().cpu().numpy()
+          #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]).to(device))
+          decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+        else:
+          sample_index = random.sample(list(range(size)), int(size/10))
+          #print(len(sample_index))
+          random.shuffle(sample_index)
+          #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])
+          decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
         decoder_loss.backward()
         decoder_optimizer.step()
         loss += decoder_loss.item()
