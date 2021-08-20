@@ -232,14 +232,6 @@ for i in range(args.n_runs):
 
 
       with torch.no_grad():
-        if args.original_encoder:
-          source_embedding, destination_embedding, _ = tgn.compute_temporal_embeddings_origin(sources_batch,
-                                                                                         destinations_batch,
-                                                                                         destinations_batch,
-                                                                                         timestamps_batch,
-                                                                                         edge_idxs_batch,
-                                                                                         NUM_NEIGHBORS)
-        else:
           source_embedding, destination_embedding, _ = tgn.compute_temporal_embeddings(sources_batch,
                                                                                      destinations_batch,
                                                                                      destinations_batch,
