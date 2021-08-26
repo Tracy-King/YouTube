@@ -22,15 +22,15 @@ torch.manual_seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='97DWg8tqo4M_pi_12')
+                    default='1kxCz6tt2MU')
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
                     default=50)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
-                    choices=['superchat', 'membership'], default='membership')
+                    choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_pi_12', help='Prefix to name the checkpoints')
+parser.add_argument('--prefix', type=str, default='tgn-attn-1kxCz6tt2MU', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')

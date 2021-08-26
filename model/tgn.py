@@ -129,7 +129,7 @@ class TGN(torch.nn.Module):
       print("Edge feature loaded!")
     else:
       print('Edge feature not founded. Computing...')
-      batch_size = 1000
+      batch_size = 100000
       result = 0
       for batch in range(0, self.n_edges, batch_size):
         print("{}/{}".format(batch, self.n_edges))
@@ -138,12 +138,14 @@ class TGN(torch.nn.Module):
         input_data = torch.from_numpy(self.edge_raw_features[batch:end].astype(np.float32)).to(self.device)
         if batch == 0:
           result = self.edge_encoder(input_data).view(n_batch, -1)
+          result = result.cpu().detach().numpy()
         else:
           tmp = self.edge_encoder(input_data).view(n_batch, -1)
-          result = torch.cat((result, tmp), dim=0)
-          #result = np.vstack((result, tmp))
+          tmp = tmp.cpu().detach().numpy()
+          #result = torch.cat((result, tmp), dim=0)
+          result = np.vstack((result, tmp))
 
-      self.edge_raw_features = result.cpu().detach().numpy()
+      self.edge_raw_features = result
       self.n_edge_features = self.edge_raw_features.shape[1]
       torch.cuda.empty_cache()
       np.save('./dynamicGraph/edge_feature_{}.npy'.format(self.data), self.edge_raw_features)
