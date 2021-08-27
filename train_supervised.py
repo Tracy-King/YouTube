@@ -263,7 +263,7 @@ for i in range(args.n_runs):
         if (torch.isfinite(pred) == False).nonzero().shape[0] != 0:
           print("max and min and inf of pos_prob: ", min(pred), max(pred),
                   (torch.isfinite(pred) == False).nonzero().shape[0])
-          pred = torch.nan_to_num(pred, posinf=1.0, neginf=0.0)
+          pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
         if TAG == 'superchat':
           pos_count = np.count_nonzero(labels_batch)
           neg_count = size - pos_count

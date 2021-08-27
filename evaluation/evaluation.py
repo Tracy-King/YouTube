@@ -40,7 +40,8 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
       pred_score = np.concatenate([(pos_prob).cpu().numpy(), (neg_prob).cpu().numpy()])
       true_label = np.concatenate([np.ones(size), np.zeros(size)])
 
-
+      if (np.isfinite(pred_score) == False).nonzero()[0].shape[0] != 0:
+        pred_score = np.nan_to_num(pred_score, nan=0.0, posinf=1.0, neginf=0.0)
 
       val_ap.append(average_precision_score(true_label, pred_score))
       val_auc.append(roc_auc_score(true_label, pred_score))
@@ -123,7 +124,7 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, batch_size, n_neigh
   '''
 
   if (np.isfinite(pred_prob)==False).nonzero()[0].shape[0] != 0:
-    pred_prob = np.nan_to_num(pred_prob, posinf=1.0, neginf=0.0) 
+    pred_prob = np.nan_to_num(pred_prob, nan=0.0, posinf=1.0, neginf=0.0)
   #pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
   pred_label = [int(n+0.5) for n in pred_prob]
   print(set(pred_label))
