@@ -47,7 +47,7 @@ parser.add_argument('--message_function', type=str, default="identity", choices=
   "mlp", "identity"], help='Type of message function')
 parser.add_argument('--memory_updater', type=str, default="gru", choices=[
   "gru", "rnn"], help='Type of memory updater')
-parser.add_argument('--aggregator', type=str, default="last", help='Type of message '
+parser.add_argument('--aggregator', type=str, default="mean", help='Type of message '
                                                                         'aggregator')
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')
@@ -76,7 +76,7 @@ except:
   parser.print_help()
   sys.exit(0)
 
-args.original_encoder = True
+#args.original_encoder = True
 args.use_memory = args.original_encoder
 
 DATASET_R1 = args.dataset_r1
@@ -239,9 +239,11 @@ for i in range(args.n_runs):
                                                             timestamps_batch, edge_idxs_batch, NUM_NEIGHBORS)
         #print('pos_prob.squeeze: {} \t neg_prob.squeeze {}'.format(pos_prob.squeeze().shape, neg_prob.squeeze().shape))
         if (torch.isfinite(pos_prob)==False).nonzero().shape[0] != 0:
+          pos_prob = torch.nan_to_num(pos_prob, nan=0.0, posinf=1.0, neginf=0.0)
           print('max and min and inf of pos_prob: ', min(pos_prob), max(pos_prob), (torch.isfinite(pos_prob)==False).nonzero().shape[0])
         if (torch.isfinite(neg_prob)==False).nonzero().shape[0] != 0:
           print('max and min and inf of neg_prob: ', min(neg_prob), max(neg_prob), (torch.isfinite(neg_prob)==False).nonzero().shape[0])
+          neg_prob = torch.nan_to_num(neg_prob, nan=0.0, posinf=1.0, neginf=0.0)
         loss += criterion(pos_prob.squeeze(), pos_label) + criterion(neg_prob.squeeze(), neg_label)
 
       loss /= args.backprop_every
