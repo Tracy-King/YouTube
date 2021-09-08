@@ -17,6 +17,19 @@ print(torch.cuda.get_device_name(0))
 a = [0, 1, 2]
 
 print(np.tile(a, (2, 1)))
+
+b = np.linspace(0, 9, 20)
+print('b1:{}'.format(b))
+b = 1 / 10 ** b
+print('b2:{}'.format(b))
+
+b = np.tile(b, (2, 1)).T
+
+print('b3:{}'.format(b))
+
+b = np.cos(b)
+
+print('b4:{}'.format(b))
 '''
 video_id = '97DWg8tqo4M'
 new_data = pd.read_pickle('dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
@@ -27,6 +40,10 @@ test = new_data
 for (i, j), k in zip(new_data[10:20].iterrows(), range(10)):
   print(i, j, k)
 '''
+dataset_name = 'concat_v2'
+#with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
+#    update_records = json.load(f)
+#    print('ok')
 
 print(0>=0.0)
 tst = 'なるはや待機� aqua ❤ エペかな、モンハンかな、🥳'

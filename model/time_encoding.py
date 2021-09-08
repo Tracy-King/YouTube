@@ -38,6 +38,6 @@ class EdgeEncode(torch.nn.Module):
                                        .float())
 
   def forward(self, t):
-    output = torch.cos(self.w(t))
+    output = self.w(t)
 
     return output

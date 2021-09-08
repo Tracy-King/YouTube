@@ -141,7 +141,7 @@ def dynamic_graph_create(series, emb, window, thrs):
     dynamic_graph.to_pickle('{}_w{}_t{}/{}_dynamic_graph.pkl'.format(root, window, thrs, video_id))
 
 
-def preprocess(data, video_id, channel_id):
+def preprocess(data, video_id=0, channel_id=0):
     u_list, i_list, ts_list, superchat_list, membership_list, weight_list, length_list = [], [], [], [], [], [], []
     idx_list = []
     idx_cnt = 1
@@ -234,15 +234,16 @@ if __name__ == '__main__':
     print("videos num:", len(video_id_list))
     #print(video_id_list)
     
-    # DaT7j74W7zw 3-22    1kxCz6tt2MU 4-5   8QEhoC-DOjM 4-3   97DWg8tqo4M 3-27
+    #  1kxCz6tt2MU 4-5   DaT7j74W7zw 4-4    8QEhoC-DOjM 4-3 19:00  fkWB_8Yyt0A  4-3 12:00  TDXBiMKQZpI 4-2  GsgbCSC6d50 3-30  zl5P5lAvLwM 3-29  sXnTgUkXqEE 3-28   97DWg8tqo4M 3-27
+    #  wtJj3CO_YR0 3-25 eIi8zCPFyng 3-24  rW8jSXVsW2E 3-23    cibdBr9TkEo  3-22   qHZwDxea7fQ 3-21  y3DCfZmX8iA 3-20  k3Nzow_OqQY 3-19   qO8Ld-qLjb0 3-16 21:00  ON3WijEIS1c 3-16 20:00
 
     # savemodel = 'train.model'
-    window = 60
-    thrs = math.cos(math.pi / 12)
+    # window = 60
+    # thrs = math.cos(math.pi / 12)
 
-    for video_id in video_id_list:
-        data = pd.read_csv('..\embedding\{}\{}.csv'.format(channel_id, video_id), na_values='0.0', keep_default_na=False)
-        emb = np.load('..\embedding\{}\{}.npy'.format(channel_id, video_id))
+    # for video_id in video_id_list:
+    #     data = pd.read_csv('..\embedding\{}\{}.csv'.format(channel_id, video_id), na_values='0.0', keep_default_na=False)
+    #     emb = np.load('..\embedding\{}\{}.npy'.format(channel_id, video_id))
     # print(data.info())
 
     # video_list, video_groups = video_separate(data)
@@ -250,8 +251,9 @@ if __name__ == '__main__':
     # data = pd.read_pickle('{}/277076677_dynamic_graph.pkl'.format(root))
 
     # print(data['superchat'].drop_duplicates().tolist())
-    # concat_list = ['DaT7j74W7zw', '97DWg8tqo4M', '8QEhoC-DOjM', '1kxCz6tt2MU']
-
+    concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0',
+                   '97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+    '''
         data = time_window_separate(data, emb, window, thrs)
         data.to_csv('../dynamicGraph/{}_v2_dynamic_graph.csv'.format(video_id))
         data.to_pickle('../dynamicGraph/{}_v2_dynamic_graph.pkl'.format(video_id))
@@ -262,19 +264,28 @@ if __name__ == '__main__':
     data = 0
     cnt = 1
     end_time = 0
-    for video_id in video_id_list:
-        new_data = pd.read_pickle('../dynamicGraph/{}_v2_dynamic_graph.pkl'.format(video_id))
+    for id in concat_list:
+        new_data = pd.read_pickle('../dynamicGraph/{}_v2_dynamic_graph.pkl'.format(id))
         if cnt == 1:
-            cnt -= 1
+            print('first:{}-{}'.format(cnt, id))
+            cnt += 1
             data = new_data
-            end_time = data['Offset'].values[-1]
+            end_time = data['Offset'].to_numpy()[-1]
+            #print(new_data['Offset'].to_numpy()[:10])
         else:
-            new_data['Offset'].add(end_time + 3600)
-            data = pd.concat([data, new_data])
-            end_time = data['Offset'].values[-1]
+            print('next:{}-{}'.format(cnt, id))
+            cnt += 1
+            new_data['Offset'] = new_data['Offset'].add(end_time + 3600)
+            #print(new_data['Offset'].to_numpy()[:10])
+            data = data.append(new_data, ignore_index=True)
+            end_time = data['Offset'].to_numpy()[-1]
+            #print(end_time)
 
-    print(new_data.info())
-    '''
+    print(data.info())
+
+    df, feat_n, update_records, node_dict = preprocess(data)
+    save_file(df, 'concat_full', update_records, feat_n)
+
     # print(data)
     # print(data[(data['video_id']=='277076677') & (data['commenter_id']=='113567493')])
 
