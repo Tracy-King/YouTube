@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import re
 import difflib
+from torch.autograd import Variable
 
 pd.set_option('display.max_columns', None)
 
@@ -13,7 +14,7 @@ print(torch.__version__)
 print(torch.cuda.is_available())
 print(torch.cuda.device_count())
 print(torch.cuda.get_device_name(0))
-
+'''
 a = [0, 1, 2]
 
 print(np.tile(a, (2, 1)))
@@ -30,7 +31,7 @@ print('b3:{}'.format(b))
 b = np.cos(b)
 
 print('b4:{}'.format(b))
-'''
+
 video_id = '97DWg8tqo4M'
 new_data = pd.read_pickle('dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
 test = new_data
@@ -40,10 +41,39 @@ test = new_data
 for (i, j), k in zip(new_data[10:20].iterrows(), range(10)):
   print(i, j, k)
 '''
+
+class args():
+
+    def __init__(self):
+        self.dim = 0
+        self.length = 1
+
+args = args()
+print(args.dim)
+
+target_onehot = torch.FloatTensor(3, 2)
+target_onehot = Variable(target_onehot)
+print('target_onehot', target_onehot)
+target = torch.tensor([0, 0, 1])
+target = target.view(-1, 1)
+print('target', target)
+target = Variable(target)
+target_onehot.scatter_(1, target, 1.)
+print('target_onehot 2', target_onehot)
+pred = target_onehot.data.max(1)
+print('pred', pred)
+
+a = np.array([1, 2, 3, 1])
+print(set(a))
+
+'''
+
 dataset_name = 'concat_v2'
-#with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
-#    update_records = json.load(f)
-#    print('ok')
+graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
+print(graph_df['superchat'].value_counts())
+print(graph_df['membership'].value_counts())
+
+
 
 print(0>=0.0)
 tst = 'なるはや待機� aqua ❤ エペかな、モンハンかな、🥳'
@@ -60,7 +90,7 @@ r2 = difflib.SequenceMatcher(None, a, c).real_quick_ratio()
 print(a, b, c)
 print(r1, r2)
 #print(subtst)
-
+'''
 #data = pd.read_csv('src/sc_data3.csv')
 
 #data.info()

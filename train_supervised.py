@@ -11,6 +11,7 @@ import torch
 import numpy as np
 
 from model.tgn import TGN
+from model.softDT import DTArgs, SoftDecisionTree
 from utils.utils import EarlyStopMonitor, get_neighbor_finder, MLP
 from utils.data_processing import compute_time_statistics, get_data_node_classification
 from evaluation.evaluation import eval_node_classification
@@ -22,15 +23,15 @@ torch.manual_seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='1kxCz6tt2MU')
+                    default='97DWg8tqo4M_v2')
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=50)
+                    default=10)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-1kxCz6tt2MU', help='Prefix to name the checkpoints')
+parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
@@ -40,8 +41,8 @@ parser.add_argument('--patience', type=int, default=5, help='Patience for early 
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.1, help='Dropout probability')
 parser.add_argument('--gpu', type=int, default=0, help='Idx for the gpu to use')
-parser.add_argument('--node_dim', type=int, default=100, help='Dimensions of the node embedding')
-parser.add_argument('--time_dim', type=int, default=100, help='Dimensions of the time embedding')
+parser.add_argument('--node_dim', type=int, default=128, help='Dimensions of the node embedding')
+parser.add_argument('--time_dim', type=int, default=128, help='Dimensions of the time embedding')
 parser.add_argument('--backprop_every', type=int, default=1, help='Every how many batches to '
                                                                   'backprop')
 parser.add_argument('--use_memory', action='store_true',
@@ -54,7 +55,7 @@ parser.add_argument('--aggregator', type=str, default="mean", help='Type of mess
                                                                         'aggregator')
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')
-parser.add_argument('--message_dim', type=int, default=100, help='Dimensions of the messages')
+parser.add_argument('--message_dim', type=int, default=128, help='Dimensions of the messages')
 parser.add_argument('--memory_dim', type=int, default=128, help='Dimensions of the memory for '
                                                                 'each user')
 parser.add_argument('--different_new_nodes', action='store_true',
@@ -143,6 +144,7 @@ logger.info(args)
 
 torch.cuda.empty_cache()
 
+
 full_data, node_features, edge_features, update_records, train_data, val_data, test_data = \
   get_data_node_classification(DATA, TAG, DATASET_R1, DATASET_R2, use_validation=args.use_validation)
 
@@ -153,6 +155,8 @@ train_ngh_finder = get_neighbor_finder(train_data, uniform=UNIFORM, max_node_idx
 # Set device
 device_string = "cuda:{}".format(GPU) if torch.cuda.is_available() else "cpu"
 device = torch.device(device_string)
+
+DTargs = DTArgs(args.bs, args.node_dim, args.n_epoch, args.lr, device)
 
 # Compute time statistics
 mean_time_shift_src, std_time_shift_src, mean_time_shift_dst, std_time_shift_dst = \
@@ -195,8 +199,9 @@ for i in range(args.n_runs):
   logger.info("TGN models loaded")
   logger.info("Start training node classification task")
 
-  decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
-  decoders = [decoder.to(device) for decoder in decoders]
+  #decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
+  #decoders = [decoder.to(device) for decoder in decoders]
+  decoder = SoftDecisionTree(DTargs).to(device)
 
 
   val_aucs = []
@@ -215,7 +220,7 @@ for i in range(args.n_runs):
       tgn.memory.__init_memory__()
 
     tgn = tgn.eval()
-    decoders = [decoder.train() for decoder in decoders]
+    #decoders = [decoder.train() for decoder in decoders]
     loss = 0
     
     for k in range(num_batch):
@@ -239,7 +244,7 @@ for i in range(args.n_runs):
                                                                                      edge_idxs_batch,
                                                                                      NUM_NEIGHBORS)
 
-      labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+      labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
       '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
@@ -248,23 +253,23 @@ for i in range(args.n_runs):
       decoder_loss.backward()
       decoder_optimizer.step()
       loss += decoder_loss.item()
-    train_losses.append(loss / num_batch)
-
-    val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, BATCH_SIZE,
+      train_losses.append(loss / num_batch)
+ 
+      val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, BATCH_SIZE,
                                        n_neighbors=NUM_NEIGHBORS)
         '''
-      for decoder in decoders:
-        decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=args.lr)
-        decoder_optimizer.zero_grad()
-        pred = decoder(source_embedding).sigmoid()
-        decoder_loss_criterion = torch.nn.BCELoss()
+
+      # decoder_optimizer = decoder.optimizer
+      # decoder_optimizer.zero_grad()
+        # pred = decoder(source_embedding).sigmoid()
+        # decoder_loss_criterion = torch.nn.BCELoss()
         # decoder_loss_criterion = torch.nn.MSELoss()
         # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
-        if (torch.isfinite(pred) == False).nonzero().shape[0] != 0:
-          print("max and min and inf of pos_prob: ", min(pred), max(pred),
-                  (torch.isfinite(pred) == False).nonzero().shape[0])
-          pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
-        if TAG == 'superchat':
+      if (torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0:
+          print("max and min and inf of pos_prob: ", min(source_embedding), max(source_embedding),
+                  (torch.isfinite(source_embedding) == False).nonzero().shape[0])
+          source_embedding = torch.nan_to_num(source_embedding, nan=0.0, posinf=1.0, neginf=0.0)
+      if TAG == 'superchat':
           pos_count = np.count_nonzero(labels_batch)
           neg_count = size - pos_count
           pos_weight = neg_count / (pos_count + 1)
@@ -287,19 +292,20 @@ for i in range(args.n_runs):
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
           #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]).to(device))
-          decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
-        else:
+
+          decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
+          # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+      else:
           sample_index = random.sample(list(range(size)), int(size/10))
           #print(len(sample_index))
           random.shuffle(sample_index)
           #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])
-          decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
-        decoder_loss.backward()
-        decoder_optimizer.step()
-        loss += decoder_loss.item()
+          decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], size)
+          # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+      loss += decoder_loss.item()
     train_losses.append(loss / N_DECODERS)
 
-    val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoders, val_data, full_data.edge_idxs,
+    val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, NODE_DIM,
                                                                           BATCH_SIZE, n_neighbors=NUM_NEIGHBORS)
 
     val_aucs.append(val_auc)

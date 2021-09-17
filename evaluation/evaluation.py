@@ -60,13 +60,13 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
   return np.mean(val_ap), np.mean(val_auc), np.mean(val_acc), np.mean(val_rec), np.mean(val_pre)
 
 
-def eval_node_classification(tgn, decoders, data, edge_idxs, batch_size, n_neighbors):
-  pred_prob = np.zeros(len(data.sources))
+def eval_node_classification(tgn, decoder, data, edge_idxs, node_dim, batch_size, n_neighbors):
+  pred = torch.zeros((len(data.sources), node_dim))
   num_instance = len(data.sources)
   num_batch = math.ceil(num_instance / batch_size)
 
   with torch.no_grad():
-    [decoder.eval() for decoder in decoders]
+    # [decoder.eval() for decoder in decoders]
     tgn.eval()
     for k in range(num_batch):
       s_idx = k * batch_size
@@ -83,15 +83,16 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, batch_size, n_neigh
                                                                                    timestamps_batch,
                                                                                    edge_idxs_batch,
                                                                                    n_neighbors)
-      #pred_prob_batch = decoder(source_embedding).sigmoid()
-      #pred_prob[s_idx: e_idx] = pred_prob_batch.cpu().numpy()
+      # pred_prob_batch = decoder(source_embedding).sigmoid()
+
+      pred[s_idx: e_idx] = source_embedding
 
       #pred_label = [int(n + 0.5) for n in pred_prob]
 
 
-      pred_prob_batch = np.array([decoder(source_embedding).sigmoid().cpu().numpy() for decoder in decoders])
+      # pred_prob_batch = decoder.test_(source_embedding).sigmoid().cpu().numpy()
       #pred_prob_num[s_idx: e_idx] = np.sum(pred_prob_batch >= 0.5, axis=0)
-      pred_prob[s_idx: e_idx] = np.mean(pred_prob_batch, axis=0)
+      # pred_prob[s_idx: e_idx] = np.mean(pred_prob_batch, axis=0)
       '''    # rank start
   n_decoder = len(decoders)
 
@@ -123,13 +124,17 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, batch_size, n_neigh
   np.savetxt("./true_label.csv", data.labels, delimiter=' ')
   '''
 
-  if (np.isfinite(pred_prob)==False).nonzero()[0].shape[0] != 0:
-    pred_prob = np.nan_to_num(pred_prob, nan=0.0, posinf=1.0, neginf=0.0)
-  #pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
-  pred_label = [int(n+0.5) for n in pred_prob]
+  if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
+    pred_prob = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
+  # pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
+  # pred_label = [int(n+0.5) for n in pred_prob]
+  # print(set(pred_label))
+  # print(set(data.labels))
+  # print(pred_prob[10:])
+  target = torch.from_numpy(data.labels).long().to(tgn.device)
+  pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
+
   print(set(pred_label))
-  print(set(data.labels))
-  print(pred_prob[10:])
 
   acc = accuracy_score(data.labels, pred_label)
   pre = precision_score(data.labels, pred_label)
