@@ -206,7 +206,7 @@ for i in range(args.n_runs):
   #decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
   #decoders = [decoder.to(device) for decoder in decoders]
   #decoder = SoftDecisionTree(DTargs).to(device)
-  decoder = xgb.XGBClassifier(max_depth=15, learning_rate=0.01, n_estimators=160,
+  decoder = xgb.XGBClassifier(max_depth=15, learning_rate=0.1, n_estimators=360,
                               objective='reg:logistic', use_label_encoder=False)
 
 
@@ -297,6 +297,8 @@ for i in range(args.n_runs):
 
           train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
           train_y = labels_batch[sample_index]
+          #train_x = source_embedding.clone().detach().cpu().numpy()
+          #train_y = labels_batch
           #print(len(sample_index))
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
@@ -304,15 +306,19 @@ for i in range(args.n_runs):
           decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
           #print(decoder.evals_result())
-          decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
+          #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       else:
           sample_index = random.sample(list(range(size)), int(size/10))
           #print(len(sample_index))
           random.shuffle(sample_index)
+          train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
+          train_y = labels_batch[sample_index]
+          decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])
-          decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], size)
+          #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], size)
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+      decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
       loss += decoder_loss
     train_losses.append(loss)
 
