@@ -9,6 +9,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 
 
+
 class DTArgs():
     def __init__(self, bs, input_dim, epochs, lr, device):
         self.batch_size = bs
@@ -235,3 +236,6 @@ class SoftDecisionTree(nn.Module):
 
         with open(os.path.join(path, 'best_model.pkl'), 'wb') as output_file:
             pickle.dump(self, output_file)
+
+
+

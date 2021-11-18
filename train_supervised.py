@@ -9,12 +9,16 @@ from pathlib import Path
 
 import torch
 import numpy as np
+import xgboost as xgb
 
 from model.tgn import TGN
 from model.softDT import DTArgs, SoftDecisionTree
 from utils.utils import EarlyStopMonitor, get_neighbor_finder, MLP
 from utils.data_processing import compute_time_statistics, get_data_node_classification
 from evaluation.evaluation import eval_node_classification
+
+from xgboost import plot_importance
+from matplotlib import pyplot as plt
 
 random.seed(0)
 np.random.seed(0)
@@ -201,7 +205,9 @@ for i in range(args.n_runs):
 
   #decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
   #decoders = [decoder.to(device) for decoder in decoders]
-  decoder = SoftDecisionTree(DTargs).to(device)
+  #decoder = SoftDecisionTree(DTargs).to(device)
+  decoder = xgb.XGBClassifier(max_depth=15, learning_rate=0.01, n_estimators=160,
+                              objective='reg:logistic', use_label_encoder=False)
 
 
   val_aucs = []
@@ -288,12 +294,17 @@ for i in range(args.n_runs):
           sample_pos_index.extend(sample_neg_index)
           random.shuffle(sample_pos_index)
           sample_index = sample_pos_index
+
+          train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
+          train_y = labels_batch[sample_index]
           #print(len(sample_index))
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
           #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]).to(device))
-
-          decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
+          decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
+          #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
+          #print(decoder.evals_result())
+          decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       else:
           sample_index = random.sample(list(range(size)), int(size/10))
@@ -302,8 +313,8 @@ for i in range(args.n_runs):
           #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])
           decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], size)
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
-      loss += decoder_loss.item()
-    train_losses.append(loss / N_DECODERS)
+      loss += decoder_loss
+    train_losses.append(loss)
 
     val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, NODE_DIM,
                                                                           BATCH_SIZE, n_neighbors=NUM_NEIGHBORS)
@@ -343,7 +354,7 @@ for i in range(args.n_runs):
     logger.info(f"Loaded the best model at epoch {early_stopper.best_epoch} for inference")
     decoder.eval()
 
-    test_auc, test_acc, test_rec, test_pre, test_cm = eval_node_classification(tgn, decoders, test_data, full_data.edge_idxs, BATCH_SIZE,
+    test_auc, test_acc, test_rec, test_pre, test_cm = eval_node_classification(tgn, decoder, test_data, full_data.edge_idxs, BATCH_SIZE,
                                         n_neighbors=NUM_NEIGHBORS)
   else:
     # If we are not using a validation set, the test performance is just the performance computed
@@ -373,3 +384,5 @@ for i in range(args.n_runs):
 
   logger.info(f"test auc: {test_auc},val acc: {test_acc}, "
                 f"val rec: {test_rec}, val pre: {test_pre}, val cm: {val_cm}")
+  plot_importance(decoder)
+  plt.show()

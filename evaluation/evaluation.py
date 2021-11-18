@@ -1,5 +1,4 @@
 import math
-
 import numpy as np
 import torch
 from sklearn.metrics import average_precision_score, roc_auc_score, accuracy_score, precision_score, recall_score, confusion_matrix
@@ -125,14 +124,16 @@ def eval_node_classification(tgn, decoder, data, edge_idxs, node_dim, batch_size
   '''
 
   if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
-    pred_prob = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
+    pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
   # pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
   # pred_label = [int(n+0.5) for n in pred_prob]
   # print(set(pred_label))
   # print(set(data.labels))
   # print(pred_prob[10:])
-  target = torch.from_numpy(data.labels).long().to(tgn.device)
-  pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
+  test_x = pred.clone().detach().cpu().numpy()
+  test_y = data.labels
+  #pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
+  pred_label = decoder.predict(test_x)
 
   print(set(pred_label))
 
@@ -143,5 +144,5 @@ def eval_node_classification(tgn, decoder, data, edge_idxs, node_dim, batch_size
   cm = confusion_matrix(data.labels, pred_label)
   #print('confusion matrix', cm)
   #print(data.labels.shape, pred_prob.shape, pred_prob)
-  auc_roc = roc_auc_score(data.labels, pred_prob)
+  auc_roc = roc_auc_score(data.labels, pred_label)
   return auc_roc, acc, pre, rec, cm
