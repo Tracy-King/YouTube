@@ -33,8 +33,14 @@ parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
                     default=10)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
-parser.add_argument('--dataset_r1', type=float, default=0.95, help='Validation dataset ratio')
-parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
+parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
+                    default='GBDT')
+parser.add_argument('--n_estimators', type=int, help='Number of estimators in decoder',
+                    default=3000)
+parser.add_argument('--max_depth', type=int, help='Number of maximum depth in decoder',
+                    default=20)
+parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
+parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
@@ -99,6 +105,7 @@ args.uniform = False
 
 DATASET_R1 = args.dataset_r1
 DATASET_R2 = args.dataset_r2
+DECODER = args.decoder
 if args.original_decoder:
   N_DECODERS = 1
 else:
@@ -207,9 +214,12 @@ for i in range(args.n_runs):
   #decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
   #decoders = [decoder.to(device) for decoder in decoders]
   #decoder = SoftDecisionTree(DTargs).to(device)
-  decoder = xgb.XGBClassifier(max_depth=8, learning_rate=0.01, n_estimators=128,
+  if DECODER=='GBDT':
+    decoder = GradientBoostingClassifier(max_depth=args.max_depth, n_estimators=args.n_estimators, learning_rate=LEARNING_RATE)
+  elif DECODER=='XGB':
+    decoder = xgb.XGBClassifier(max_depth=args.max_depth, learning_rate=LEARNING_RATE, n_estimators=args.n_estimators,
                               objective='reg:logistic', use_label_encoder=False)
-  #decoder = GradientBoostingClassifier(max_depth=8, n_estimators=128, learning_rate=0.01)
+  #
 
 
   val_aucs = []
@@ -305,7 +315,10 @@ for i in range(args.n_runs):
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
           #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]).to(device))
-          decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
+          if DECODER=='GBDT':
+            decoder.fit(train_x, train_y)
+          elif DECODER=='XGB':
+            decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #decoder.fit(train_x, train_y)    # for GBDT
           #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
           #print(decoder.evals_result())
@@ -317,12 +330,16 @@ for i in range(args.n_runs):
           random.shuffle(sample_index)
           train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
           train_y = labels_batch[sample_index]
+          if DECODER=='GBDT':
+            decoder.fit(train_x, train_y)
+          elif DECODER=='XGB':
+            decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
-          decoder.fit(train_x, train_y)   # for GBDT
+          #decoder.fit(train_x, train_y)   # for GBDT
           #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])
           #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], size)
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
-      decoder_loss = 0.0#np.mean(decoder.evals_result()['validation_0']['logloss'])
+      decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss']) if DECODER=='XGB' else 0.0
       loss += decoder_loss
     train_losses.append(loss)
 
@@ -394,6 +411,7 @@ for i in range(args.n_runs):
 
   logger.info(f"test auc: {test_auc},val acc: {test_acc}, "
                 f"val rec: {test_rec}, val pre: {test_pre}, val cm: {val_cm}")
-  plot_importance(decoder)
-  plt.show()
-  plt.savefig(f'{results_path}_feature_importance.png')
+  if DECODER=='XGB':
+    plot_importance(decoder)
+    plt.show()
+    plt.savefig(f'{results_path}_feature_importance.png')
