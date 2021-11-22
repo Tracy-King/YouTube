@@ -213,14 +213,14 @@ for i in range(args.n_runs):
 
   #decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
   #decoders = [decoder.to(device) for decoder in decoders]
-  #decoder = SoftDecisionTree(DTargs).to(device)
-  if DECODER=='GBDT':
-    decoder = GradientBoostingClassifier(max_depth=args.max_depth, n_estimators=args.n_estimators, learning_rate=LEARNING_RATE)
-  elif DECODER=='XGB':
-    decoder = xgb.XGBClassifier(max_depth=args.max_depth, learning_rate=LEARNING_RATE, n_estimators=args.n_estimators,
-                              objective='reg:logistic', use_label_encoder=False)
+  decoder = SoftDecisionTree(DTargs).to(device)
+  #if DECODER=='GBDT':
+  #  decoder = GradientBoostingClassifier(max_depth=args.max_depth, n_estimators=args.n_estimators, learning_rate=LEARNING_RATE)
+  #elif DECODER=='XGB':
+  #  decoder = xgb.XGBClassifier(max_depth=args.max_depth, learning_rate=LEARNING_RATE, n_estimators=args.n_estimators,
+  #                            objective='reg:logistic', use_label_encoder=False)
   #
-  decoder = MLP(node_features.shape[1], drop=DROP_OUT).to(device)
+  #decoder = MLP(node_features.shape[1], drop=DROP_OUT).to(device)
 
   params = list(tgn.parameters()) + list(decoder.parameters())
   optimizer = torch.optim.Adam(params, lr=LEARNING_RATE)
@@ -270,7 +270,7 @@ for i in range(args.n_runs):
                                                                                      edge_idxs_batch,
                                                                                      NUM_NEIGHBORS)
 
-      labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+      labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
       '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
@@ -285,7 +285,7 @@ for i in range(args.n_runs):
                                        n_neighbors=NUM_NEIGHBORS)
         '''
 
-      pred = decoder(source_embedding).sigmoid()
+      #pred = decoder(source_embedding).sigmoid()
 
         # decoder_loss_criterion = torch.nn.MSELoss()
         # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
@@ -325,9 +325,9 @@ for i in range(args.n_runs):
           #  decoder.fit(train_x, train_y)
           #elif DECODER=='XGB':
           #  decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
-          decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+          #decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
           #decoder.fit(train_x, train_y)    # for GBDT
-          #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
+          decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
           #print(decoder.evals_result())
           #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
           #decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])

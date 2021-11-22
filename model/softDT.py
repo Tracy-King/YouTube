@@ -97,7 +97,7 @@ class LeafNode():
             self.param = self.param.to(self.args.device)
         self.param = nn.Parameter(self.param)
         self.leaf = True
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self):
         return (self.softmax(self.param.view(1, -1)))
@@ -198,12 +198,12 @@ class SoftDecisionTree(nn.Module):
 
         self.target_onehot.data.zero_()
         self.target_onehot.scatter_(1, target_, 1.)
-        self.optimizer.zero_grad()
+        #self.optimizer.zero_grad()
 
         loss, output = self.cal_loss(data, self.target_onehot)
             # loss.backward(retain_variables=True)
-        loss.backward()
-        self.optimizer.step()
+        #loss.backward()
+        #self.optimizer.step()
         pred = output.data.max(1)[1]  # get the index of the max log-probability
         return loss, pred
 

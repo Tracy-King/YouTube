@@ -125,17 +125,18 @@ def eval_node_classification(tgn, decoder, data, edge_idxs, node_dim, batch_size
   '''
 
   if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
-    pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0).to()
+    pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
   #print(pred.device, next(decoder.parameters()).is_cuda, source_embedding.device)
-  pred_prob = decoder(pred).sigmoid()
+  #pred_prob = decoder(pred).sigmoid()
   # pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
-  pred_label = [int(n+0.5) for n in pred_prob]
+  #pred_label = [int(n+0.5) for n in pred_prob]
   # print(set(pred_label))
   # print(set(data.labels))
   # print(pred_prob[10:])
   #test_x = pred.clone().detach().cpu().numpy()
   #test_y = data.labels
-  #pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
+  target = torch.from_numpy(data.labels).long().to(device)
+  pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
 
 
   print(set(pred_label))
