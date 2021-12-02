@@ -169,7 +169,7 @@ class GraphEmbedding(EmbeddingModule):
 
     assert (n_layers >= 0)
 
-    source_nodes_torch = torch.from_numpy(source_nodes).long().to(self.device)
+    #source_nodes_torch = torch.from_numpy(source_nodes).long().to(self.device)
     timestamps_torch = torch.unsqueeze(torch.from_numpy(timestamps).float().to(self.device), dim=1)
 
     # query node always has the start time -> time span == 0

@@ -43,7 +43,7 @@ parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation d
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_v2', help='Prefix to name the checkpoints')
-parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
+parser.add_argument('--n_degree', type=int, default=30, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
@@ -127,7 +127,7 @@ LEARNING_RATE = args.lr
 NODE_LAYER = 1
 NODE_DIM = args.node_dim
 TIME_DIM = args.time_dim
-USE_MEMORY = args.use_memory
+USE_MEMORY = False#args.use_memory
 MESSAGE_DIM = args.message_dim
 MEMORY_DIM = args.memory_dim
 
@@ -322,7 +322,7 @@ for i in range(args.n_runs):
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
           #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([2]).to(device))
           #if DECODER=='GBDT':
-          #  decoder.fit(train_x, train_y)
+          #  decoder.fit(train_x, train_y)   
           #elif DECODER=='XGB':
           #  decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
