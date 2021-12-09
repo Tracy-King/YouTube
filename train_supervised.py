@@ -44,7 +44,7 @@ parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=30, help='Number of neighbors to sample')
-parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
+parser.add_argument('--n_head', type=int, default=4, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
 parser.add_argument('--lr', type=float, default=5e-3, help='Learning rate')
