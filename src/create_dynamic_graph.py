@@ -260,8 +260,9 @@ if __name__ == '__main__':
         save_file(df, video_id + '_v3', update_records, feat_n)
     '''
     #concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
-    concat_list = ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw']# '1kxCz6tt2MU']
-
+    #concat_list = ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+    # concat_list = ['fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+    '''
     data = 0#pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
     cnt = 1
     end_time = 0#data['Offset'].iat[-1].to_numpy()
@@ -283,7 +284,15 @@ if __name__ == '__main__':
             #print(end_time)
 
     print(data.info())
-    data.to_pickle('../dynamicGraph/concat_full_v3_tmp2.pkl')
+    data.to_pickle('../dynamicGraph/concat_full_v3_tmp3.pkl')
+    '''
+    data1 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
+    data2 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp2.pkl')
+    end_time = data1['Offset'].iat[-1]
+    data2['Offset'] = data2['Offset'].add(end_time + 3600)
+    data = data1.append(data2, ignore_index=True)
+    data.to_pickle('../dynamicGraph/concat_full_v3.pkl')
+
     #df, feat_n, update_records, node_dict = preprocess(data)
     #save_file(df, 'concat_full_v3_1', update_records, feat_n)
 
