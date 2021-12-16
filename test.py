@@ -14,6 +14,14 @@ print(torch.__version__)
 print(torch.cuda.is_available())
 print(torch.cuda.device_count())
 print(torch.cuda.get_device_name(0))
+
+dataset_name = 'concat_full_v3.10'
+
+
+
+df = pd.read_csv('dynamicGraph/ml_concat_full_v3.10.csv')
+print(df['superchat'].value_counts())
+print(df['membership'].value_counts())
 '''
 a = [0, 1, 2]
 
@@ -51,20 +59,11 @@ class args():
 args = args()
 print(args.dim)
 
-target_onehot = torch.FloatTensor(3, 2)
-target_onehot = Variable(target_onehot)
-print('target_onehot', target_onehot)
-target = torch.tensor([0, 0, 1])
-target = target.view(-1, 1)
-print('target', target)
-target = Variable(target)
-target_onehot.scatter_(1, target, 1.)
-print('target_onehot 2', target_onehot)
-pred = target_onehot.data.max(1)
-print('pred', pred)
-
-a = np.array([1, 2, 3, 1])
-print(set(a))
+history_list = list(range(10,0,-1))
+delete_list = [2, 3, 5]
+print(history_list)
+history_list = [history_list[idx] for idx in range(len(history_list)) if idx not in delete_list]
+print(history_list)
 
 '''
 

@@ -10,6 +10,7 @@ import re
 import difflib
 
 pd.set_option('display.width', None)
+pd.set_option('display.max_columns', None)
 
 
 def video_separate(data):
@@ -63,6 +64,19 @@ def time_window_separate(series, emb, window, thrs):
         tmp_series = series[(series['offset'] >= batch_list[i])
                             & (series['offset'] < batch_list[i + 1])]
         duration_flag = ifDuplicate(tmp_series['body'])
+        if len(history_list) != 0:
+            delete_list = []
+            for h_idx in range(len(history_list)):
+                if history_list[h_idx][0]['superchat'] == 0 and (history_list[h_idx][1] + 1 < i):
+                    delete_list.append(h_idx)
+                elif history_list[h_idx][0]['superchat'] == 1 and (history_list[h_idx][1] + 10 < i):
+                    delete_list.append(h_idx)
+                else:
+                    continue
+            history_list = [history_list[h_idx] for h_idx in range(len(history_list)) if h_idx not in delete_list]
+            if i%100==0:
+                print(len(history_list))
+
         for (j, cur_row), idx in zip(tmp_series.iterrows(), range(len(duration_flag))):
             # print(type(cur_row), cur_row)
             # print(cur_row['body'])
@@ -71,15 +85,12 @@ def time_window_separate(series, emb, window, thrs):
             offset = cur_row['offset']
             s_label = cur_row['superchat']
             m_label = cur_row['membership']
-
             value = emb[j]
-
-            while len(history_list) != 0 and history_list[0][0]['offset'] + window < offset:
+            '''
+            while len(history_list) != 0 and history_list[0][0]['offset']+window < offset:
                 history_list.pop(0)
+            '''
 
-            while len(history_edge_list) != 0 and history_edge_list[0]['offset'] + window < offset:
-                history_edge_list.pop(0)
-                # print("Remove")
 
             if commenter_id not in node_list:
                 node_list[commenter_id] = 1
@@ -100,12 +111,6 @@ def time_window_separate(series, emb, window, thrs):
                 if duration_flag[idx] == 1 or math.isnan(cos_sim) or n[0]['commenter_id'] == commenter_id:
                     continue
                 if cos_sim > thrs:
-                    history_edge_list.append({'node1': n[0]['commenter_id'],
-                                              'node2': commenter_id,
-                                              'offset': offset,
-                                              'superchat': n[0]['superchat'],
-                                              'membership': n[0]['membership']})
-
                     dynamic_graph.append(['EDGE', n[0]['commenter_id'], commenter_id, [0], i, offset, n[0]['superchat'],
                                           n[0]['membership'], cos_sim, body_length])
                     # print("Edge")
@@ -238,36 +243,34 @@ if __name__ == '__main__':
     #  wtJj3CO_YR0 3-25 eIi8zCPFyng 3-24  rW8jSXVsW2E 3-23    cibdBr9TkEo  3-22   qHZwDxea7fQ 3-21  y3DCfZmX8iA 3-20  k3Nzow_OqQY 3-19   qO8Ld-qLjb0 3-16 21:00  ON3WijEIS1c 3-16 20:00
 
     # savemodel = 'train.model'
-    window = 180
+    window = 30
     thrs = math.cos(math.pi / 12)
+
     '''
     for video_id in video_id_list:
-        data = pd.read_csv('..\embedding\{}\{}.csv'.format(channel_id, video_id), na_values='0.0', keep_default_na=False)
+        data = pd.read_csv('..\embedding\{}\{}.csv'.format(channel_id, video_id)) #, sep=',', keep_default_na=False
+        #print(data[:10])
         emb = np.load('..\embedding\{}\{}.npy'.format(channel_id, video_id))
-        print(data.info())
-    '''
-    # video_list, video_groups = video_separate(data)
-    # dynamic_graph_create(video_list, video_groups, window, thrs)
-    # data = pd.read_pickle('{}/277076677_dynamic_graph.pkl'.format(root))
-
-    # print(data['superchat'].drop_duplicates().tolist())
-    '''
         data = time_window_separate(data, emb, window, thrs)
+        print(data.info())
+
         #data.to_csv('../dynamicGraph/{}_v2_dynamic_graph.csv'.format(video_id))
-        data.to_pickle('../dynamicGraph/{}_v3_dynamic_graph.pkl'.format(video_id))
-        new_data = pd.read_pickle('../dynamicGraph/{}_v3_dynamic_graph.pkl'.format(video_id))
+        data.to_pickle('../dynamicGraph/{}_v3.10_dynamic_graph.pkl'.format(video_id))
+        new_data = pd.read_pickle('../dynamicGraph/{}_v3.10_dynamic_graph.pkl'.format(video_id))
         df, feat_n, update_records, node_dict = preprocess(new_data, video_id, channel_id)
-        save_file(df, video_id + '_v3', update_records, feat_n)
+        print(df['Superchat'].value_counts())
+        save_file(df, video_id + '_v3.10', update_records, feat_n)
+
     '''
-    #concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
-    #concat_list = ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+    concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0',
+                    '97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
     # concat_list = ['fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
-    '''
+    
     data = 0#pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
     cnt = 1
     end_time = 0#data['Offset'].iat[-1].to_numpy()
     for id in concat_list:
-        new_data = pd.read_pickle('../dynamicGraph/{}_v3_dynamic_graph.pkl'.format(id))
+        new_data = pd.read_pickle('../dynamicGraph/{}_v3.10_dynamic_graph.pkl'.format(id))
         if cnt == 1:
             print('first:{}-{}'.format(cnt, id))
             cnt += 1
@@ -282,32 +285,26 @@ if __name__ == '__main__':
             data = data.append(new_data, ignore_index=True)
             end_time = data['Offset'].iat[-1]
             #print(end_time)
-
+    
     print(data.info())
-    data.to_pickle('../dynamicGraph/concat_full_v3_tmp3.pkl')
+    data.to_pickle('../dynamicGraph/concat_full_v3.10_tmp3.pkl')
     '''
-    data1 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
-    data2 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp2.pkl')
-    end_time = data1['Offset'].iat[-1]
+    #data1 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
+    #data2 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp2.pkl')
+    print(data1.info(), data2.info())
+    end_time = 282594.52699999994
+    print('end_time_1:', end_time)
     data2['Offset'] = data2['Offset'].add(end_time + 3600)
-    data = data1.append(data2, ignore_index=True)
+    data = pd.concat([data1, data2], ignore_index=True)
+    print('concat finished')
     data.to_pickle('../dynamicGraph/concat_full_v3.pkl')
-
-    #df, feat_n, update_records, node_dict = preprocess(data)
-    #save_file(df, 'concat_full_v3_1', update_records, feat_n)
+    '''
+    df, feat_n, update_records, node_dict = preprocess(data)
+    save_file(df, 'concat_full_v3.10', update_records, feat_n)
 
     # print(data)
     # print(data[(data['video_id']=='277076677') & (data['commenter_id']=='113567493')])
 
 
-    # print(df['superchat'].drop_duplicates())
-    # print(df['membership'].drop_duplicates())
-
-
-
-    '''''
-    with open('..\dynamicGraph\ml_{}.json'.format(video_id), 'r', encoding='UTF-8') as f:
-        update_records = json.load(f)
-
-    print(len(update_records))
-    '''''
+    print(df['superchat'].value_counts())
+    print(df['membership'].value_counts())
