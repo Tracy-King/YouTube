@@ -7,7 +7,7 @@ from model.temporal_attention import TemporalAttentionLayer, TemporalAttentionLa
 
 
 class EmbeddingModule(nn.Module):
-  def __init__(self, node_features, edge_features, update_records, memory, neighbor_finder, time_encoder, n_layers,
+  def __init__(self, node_features, edge_features, update_records, neighbor_finder, time_encoder, n_layers,
                n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
                dropout):
     super(EmbeddingModule, self).__init__()
@@ -18,7 +18,7 @@ class EmbeddingModule(nn.Module):
     self.edge_features = edge_features
     self.update_records = update_records
     self.update_records_idx = [int(i) for i in update_records.keys()]
-    # self.memory = memory
+    self.memory = None
     self.neighbor_finder = neighbor_finder
     self.time_encoder = time_encoder
     self.n_layers = n_layers
@@ -79,10 +79,10 @@ class TimeEmbedding(EmbeddingModule):
 
 
 class GraphEmbedding(EmbeddingModule):
-  def __init__(self, node_features, edge_features, update_records, memory, neighbor_finder, time_encoder, n_layers,
+  def __init__(self, node_features, edge_features, update_records, neighbor_finder, time_encoder, n_layers,
                n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
-               n_heads=2, dropout=0.1, use_memory=True, original_encoder=False):
-    super(GraphEmbedding, self).__init__(node_features, edge_features, update_records, memory,
+               n_heads=2, dropout=0.1, use_memory=False, original_encoder=False):
+    super(GraphEmbedding, self).__init__(node_features, edge_features, update_records,
                                          neighbor_finder, time_encoder, n_layers,
                                          n_node_features, n_edge_features, n_time_features,
                                          embedding_dimension, device, dropout)
@@ -91,8 +91,8 @@ class GraphEmbedding(EmbeddingModule):
     self.device = device
 
 
-  def compute_embedding(self, memory, source_nodes, source_node_raw_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
-                        use_time_proj=True):
+  def compute_embedding(self, source_nodes, source_node_raw_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
+                        use_time_proj=True, memory=None):
     """Recursive implementation of curr_layers temporal graph attention layers.
 
     src_idx_l [batch_size]: users / items input ids.
@@ -132,8 +132,7 @@ class GraphEmbedding(EmbeddingModule):
       edge_deltas_torch = torch.from_numpy(edge_deltas).float().to(self.device)
 
       neighbors = neighbors.flatten()
-      neighbor_embeddings = self.compute_embedding(memory,
-                                                   neighbors,
+      neighbor_embeddings = self.compute_embedding(neighbors,
                                                    torch.from_numpy(self.node_features[neighbors, :].astype(np.float32)).to(self.device),
                                                    np.repeat(timestamps, n_neighbors),
                                                    n_layers=n_layers - 1,
@@ -157,8 +156,8 @@ class GraphEmbedding(EmbeddingModule):
 
       return source_embedding
 
-  def compute_embeddingv2(self, memory, source_nodes, source_node_raw_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
-                        use_time_proj=True):
+  def compute_embeddingv2(self, source_nodes, source_node_raw_features, timestamps, n_layers, n_neighbors=20, time_diffs=None,
+                        use_time_proj=True, memory=None):
     """Recursive implementation of curr_layers temporal graph attention layers.
 
     src_idx_l [batch_size]: users / items input ids.
@@ -199,10 +198,9 @@ class GraphEmbedding(EmbeddingModule):
       edge_deltas_torch = torch.from_numpy(edge_deltas).float().to(self.device)
 
       neighbors = neighbors.flatten()
-      neighbor_embeddings = self.compute_embeddingv2(memory,
-                                                   neighbors,
-                                                   torch.from_numpy(self.node_features[neighbors, :].astype(np.float32)).to(self.device),
-                                                   np.repeat(timestamps, n_neighbors),
+      neighbor_embeddings = self.compute_embeddingv2(source_nodes=neighbors,
+                                                   source_node_raw_features=torch.from_numpy(self.node_features[neighbors, :].astype(np.float32)).to(self.device),
+                                                   timestamps=np.repeat(timestamps, n_neighbors),
                                                    n_layers=n_layers - 1,
                                                    n_neighbors=n_neighbors)
 
@@ -237,13 +235,12 @@ class GraphEmbedding(EmbeddingModule):
 
 
 class GraphSumEmbedding(GraphEmbedding):
-  def __init__(self, node_features, edge_features, update_records,  memory, neighbor_finder, time_encoder, n_layers,
+  def __init__(self, node_features, edge_features, update_records, neighbor_finder, time_encoder, n_layers,
                n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
                n_heads=2, dropout=0.1, use_memory=True):
     super(GraphSumEmbedding, self).__init__(node_features=node_features,
                                             edge_features=edge_features,
                                             update_records= update_records,
-                                            memory=memory,
                                             neighbor_finder=neighbor_finder,
                                             time_encoder=time_encoder, n_layers=n_layers,
                                             n_node_features=n_node_features,
@@ -277,10 +274,10 @@ class GraphSumEmbedding(GraphEmbedding):
 
 
 class GraphAttentionEmbedding(GraphEmbedding):
-  def __init__(self, node_features, edge_features, update_records, memory, neighbor_finder, time_encoder, n_layers,
+  def __init__(self, node_features, edge_features, update_records, neighbor_finder, time_encoder, n_layers,
                n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
                n_heads=2, dropout=0.1, use_memory=True, original_encoder=False):
-    super(GraphAttentionEmbedding, self).__init__(node_features, edge_features, update_records, memory,
+    super(GraphAttentionEmbedding, self).__init__(node_features, edge_features, update_records,
                                                   neighbor_finder, time_encoder, n_layers,
                                                   n_node_features, n_edge_features,
                                                   n_time_features,
@@ -340,16 +337,15 @@ class GraphAttentionEmbedding(GraphEmbedding):
 
       return source_embedding
 
-def get_embedding_module(module_type, node_features, edge_features, update_records, memory, neighbor_finder,
+def get_embedding_module(module_type, node_features, edge_features, update_records, neighbor_finder,
                          time_encoder, n_layers, n_node_features, n_edge_features, n_time_features,
                          embedding_dimension, device,
                          n_heads=2, dropout=0.1, n_neighbors=None,
-                         use_memory=True, original_encoder=False):
+                         use_memory=False, original_encoder=False):
   if module_type == "graph_attention":
     return GraphAttentionEmbedding(node_features=node_features,
                                     edge_features=edge_features,
                                     update_records=update_records,
-                                    memory=memory,
                                     neighbor_finder=neighbor_finder,
                                     time_encoder=time_encoder,
                                     n_layers=n_layers,
@@ -363,7 +359,6 @@ def get_embedding_module(module_type, node_features, edge_features, update_recor
     return GraphSumEmbedding(node_features=node_features,
                               edge_features=edge_features,
                               update_records=update_records,
-                              memory=memory,
                               neighbor_finder=neighbor_finder,
                               time_encoder=time_encoder,
                               n_layers=n_layers,
@@ -378,7 +373,6 @@ def get_embedding_module(module_type, node_features, edge_features, update_recor
     return IdentityEmbedding(node_features=node_features,
                              edge_features=edge_features,
                              update_records=update_records,
-                             memory=memory,
                              neighbor_finder=neighbor_finder,
                              time_encoder=time_encoder,
                              n_layers=n_layers,
@@ -392,7 +386,6 @@ def get_embedding_module(module_type, node_features, edge_features, update_recor
     return TimeEmbedding(node_features=node_features,
                          edge_features=edge_features,
                          update_records=update_records,
-                         memory=memory,
                          neighbor_finder=neighbor_finder,
                          time_encoder=time_encoder,
                          n_layers=n_layers,

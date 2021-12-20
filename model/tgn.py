@@ -58,6 +58,7 @@ class TGN(torch.nn.Module):
     self.use_source_embedding_in_message = use_source_embedding_in_message
     self.dyrep = dyrep
     self.original_encoder = original_encoder
+    self.last_updated = np.zeros(self.n_nodes)
 
     self.use_memory = use_memory
     self.time_encoder = TimeEncode(dimension=self.n_node_features)
@@ -78,7 +79,7 @@ class TGN(torch.nn.Module):
     if self.use_memory:
       self.memory_dimension = memory_dimension
       self.memory_update_at_start = memory_update_at_start
-      raw_message_dimension = 2 * self.memory_dimension + self.n_edge_features + \
+      raw_message_dimension = 2 * self.message_dimension + self.n_edge_features + \
                               self.time_encoder.dimension
       message_dimension = message_dimension if message_function != "identity" else raw_message_dimension
       '''
@@ -107,7 +108,6 @@ class TGN(torch.nn.Module):
                                                  node_features=self.node_raw_features,
                                                  edge_features=self.edge_raw_features,
                                                  update_records=self.update_records,
-                                                 memory=self.memory,
                                                  neighbor_finder=self.neighbor_finder,
                                                  time_encoder=self.time_encoder,
                                                  n_layers=self.n_layers,
@@ -390,8 +390,7 @@ class TGN(torch.nn.Module):
     self.embedding_module.update_node_features(updated_node_raw_features=self.node_raw_features)
     #print(type(node_features))
     # Compute the embeddings using the embedding module
-    node_embedding = self.embedding_module.compute_embeddingv2(memory=memory,
-                                                             source_node_raw_features=node_features,
+    node_embedding = self.embedding_module.compute_embeddingv2(source_node_raw_features=node_features,
                                                              source_nodes=nodes,
                                                              timestamps=timestamps,
                                                              n_layers=self.n_layers,
