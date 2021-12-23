@@ -3,6 +3,8 @@ import random
 import pandas as pd
 from scipy import sparse
 import json
+from utils.utils import MergeLayer
+import torch
 
 
 class Data:
@@ -17,7 +19,7 @@ class Data:
     self.n_unique_nodes = len(self.unique_nodes)
 
 
-def get_data_node_classification(dataset_name, tag, dataset_r1, dataset_r2, use_validation=False, binary=True):
+def get_data_node_classification(dataset_name, tag, dataset_r1, dataset_r2, NODE_DIM, device, use_validation=False, binary=True):
   ### Load data and train val test split
   graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
   with open('./dynamicGraph/ml_{}.json'.format(dataset_name), 'r', encoding='UTF-8') as f:
@@ -27,6 +29,10 @@ def get_data_node_classification(dataset_name, tag, dataset_r1, dataset_r2, use_
 
 
   val_time, test_time = list(np.quantile(graph_df.ts, [dataset_r1, dataset_r2]))
+
+  if node_features.shape[1] != NODE_DIM:
+    zipper = MergeLayer(node_features.shape[1], 0, NODE_DIM, NODE_DIM).to(device)
+    node_features = zipper(torch.from_numpy(node_features).float().to(device), torch.tensor([]).to(device)).cpu().detach().numpy()
 
 
   sources = graph_df.u.values

@@ -13,7 +13,7 @@ class EmbeddingModule(nn.Module):
     super(EmbeddingModule, self).__init__()
     self.node_features = node_features
     self.device = device
-
+    self.embedding_dimension = embedding_dimension
     self.node_old_embedding = self.node_features#torch.from_numpy(self.node_features.astype(np.float32)).to(self.device)
     self.edge_features = edge_features
     self.update_records = update_records
@@ -23,11 +23,11 @@ class EmbeddingModule(nn.Module):
     self.time_encoder = time_encoder
     self.n_layers = n_layers
     self.n_node_features = n_node_features
-    self.n_node_old_embedding = n_node_features
+    self.n_node_old_embedding = embedding_dimension
     self.n_edge_features = n_edge_features
     self.n_time_features = n_time_features
     self.dropout = dropout
-    self.embedding_dimension = embedding_dimension
+
 
 
     #print(' self.node_old_embedding:', type( self.node_old_embedding))
@@ -294,7 +294,7 @@ class GraphAttentionEmbedding(GraphEmbedding):
         time_dim=n_time_features,
         n_head=n_heads,
         dropout=dropout,
-        output_dimension=n_node_features)
+        output_dimension=embedding_dimension)
         for _ in range(n_layers)])
     else:
       self.attention_models = torch.nn.ModuleList([TemporalAttentionLayer(
@@ -305,7 +305,7 @@ class GraphAttentionEmbedding(GraphEmbedding):
         time_dim=n_time_features,
         n_head=n_heads,
         dropout=dropout,
-        output_dimension=n_node_features)
+        output_dimension=embedding_dimension)
         for _ in range(n_layers)])
 
   def aggregate(self, n_layer, source_node_features, source_node_old_embedding, source_nodes_time_embedding,

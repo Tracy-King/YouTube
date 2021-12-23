@@ -18,7 +18,7 @@ class TGN(torch.nn.Module):
   def __init__(self, neighbor_finder, node_features, edge_features, update_records, device, data, n_layers=2,
                n_heads=2, dropout=0.1, use_memory=False,
                memory_update_at_start=True, message_dimension=100,
-               memory_dimension=500, embedding_module_type="graph_attention",
+               memory_dimension=500, embedding_module_type="graph_attention", embedding_dim=128,
                message_function="mlp",
                mean_time_shift_src=0, std_time_shift_src=1, mean_time_shift_dst=0,
                std_time_shift_dst=1, n_neighbors=None, aggregator_type="last",
@@ -51,7 +51,7 @@ class TGN(torch.nn.Module):
     self.n_edge_features = self.n_node_features
     self.n_nodes = self.node_raw_features.shape[0]
     self.n_edges = self.edge_raw_features.shape[0]
-    self.embedding_dimension = self.n_node_features
+    self.embedding_dimension = embedding_dim
     self.n_neighbors = n_neighbors
     self.embedding_module_type = embedding_module_type
     self.use_destination_embedding_in_message = use_destination_embedding_in_message

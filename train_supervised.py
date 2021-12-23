@@ -41,7 +41,7 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
+parser.add_argument('--bs', type=int, default=500, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-97DWg8tqo4M_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
@@ -66,8 +66,8 @@ parser.add_argument('--aggregator', type=str, default="mean", help='Type of mess
                                                                         'aggregator')
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')
-parser.add_argument('--message_dim', type=int, default=128, help='Dimensions of the messages')
-parser.add_argument('--memory_dim', type=int, default=128, help='Dimensions of the memory for '
+parser.add_argument('--message_dim', type=int, default=64, help='Dimensions of the messages')
+parser.add_argument('--memory_dim', type=int, default=64, help='Dimensions of the memory for '
                                                                 'each user')
 parser.add_argument('--different_new_nodes', action='store_true',
                     help='Whether to use disjoint set of new nodes for train and val')
@@ -157,16 +157,18 @@ logger.info(args)
 torch.cuda.empty_cache()
 
 
+# Set device
+device_string = "cuda:{}".format(GPU) if torch.cuda.is_available() else "cpu"
+device = torch.device(device_string)
+
 full_data, node_features, edge_features, update_records, train_data, val_data, test_data = \
-  get_data_node_classification(DATA, TAG, DATASET_R1, DATASET_R2, use_validation=args.use_validation)
+  get_data_node_classification(DATA, TAG, DATASET_R1, DATASET_R2, NODE_DIM, device, use_validation=args.use_validation)
 
 max_idx = max(full_data.unique_nodes)
 
 train_ngh_finder = get_neighbor_finder(train_data, uniform=UNIFORM, max_node_idx=max_idx)
 
-# Set device
-device_string = "cuda:{}".format(GPU) if torch.cuda.is_available() else "cpu"
-device = torch.device(device_string)
+
 
 DTargs = DTArgs(args.bs, args.node_dim, args.n_epoch, args.lr, device)
 
@@ -188,6 +190,7 @@ for i in range(args.n_runs):
             message_dimension=MESSAGE_DIM, memory_dimension=MEMORY_DIM,
             memory_update_at_start=not args.memory_update_at_end,
             embedding_module_type=args.embedding_module,
+            embedding_dim=NODE_DIM,
             message_function=args.message_function,
             aggregator_type=args.aggregator, n_neighbors=NUM_NEIGHBORS,
             mean_time_shift_src=mean_time_shift_src, std_time_shift_src=std_time_shift_src,
@@ -224,7 +227,7 @@ for i in range(args.n_runs):
 
   params = list(tgn.parameters()) + list(decoder.parameters())
   optimizer = torch.optim.Adam(params, lr=LEARNING_RATE)
-  decoder_loss_criterion = torch.nn.BCELoss()
+  #decoder_loss_criterion = torch.nn.BCELoss()
 
 
 
@@ -328,7 +331,7 @@ for i in range(args.n_runs):
           #  decoder.fit(train_x, train_y)   
           #elif DECODER=='XGB':
           #  decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
-          #decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+          #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
           #decoder.fit(train_x, train_y)    # for GBDT
           decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
           #print(decoder.evals_result())
@@ -354,6 +357,8 @@ for i in range(args.n_runs):
     loss.backward(retain_graph=True)
     optimizer.step()
     train_losses.append(loss.item())
+    if (k%1000==0):
+        print(k)
 
     val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, NODE_DIM,
                                                                           BATCH_SIZE, n_neighbors=NUM_NEIGHBORS, device=device)
