@@ -177,10 +177,10 @@ class GraphEmbedding(EmbeddingModule):
     #source_node_features = self.node_features[source_nodes_torch, :]
     source_node_old_embedding = torch.from_numpy(self.node_old_embedding[source_nodes, :].astype(np.float32)).to(self.device)
     source_node_features = source_node_raw_features
-
+    '''
     if self.use_memory:
       source_node_features = memory[source_nodes, :] + source_node_raw_features
-
+    '''
     if n_layers == 0:
       return source_node_old_embedding
     else:

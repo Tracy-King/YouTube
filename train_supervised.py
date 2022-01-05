@@ -266,8 +266,7 @@ for i in range(args.n_runs):
 
 
       with torch.no_grad():
-          source_embedding, destination_embedding, _ = tgn.compute_temporal_embeddings(sources_batch,
-                                                                                     destinations_batch,
+          source_embedding, destination_embedding = tgn.compute_temporal_embeddings(sources_batch,
                                                                                      destinations_batch,
                                                                                      timestamps_batch,
                                                                                      edge_idxs_batch,
@@ -293,7 +292,7 @@ for i in range(args.n_runs):
 
         # decoder_loss_criterion = torch.nn.MSELoss()
         # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
-
+      torch.cuda.empty_cache()
       if (torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0:
           print("max and min and inf of pos_prob: ", min(source_embedding), max(source_embedding),
                   (torch.isfinite(source_embedding) == False).nonzero().shape[0])
@@ -354,6 +353,7 @@ for i in range(args.n_runs):
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss']) if DECODER=='XGB' else 0.0
       loss += decoder_loss
+      torch.cuda.empty_cache()
     loss.backward(retain_graph=True)
     optimizer.step()
     train_losses.append(loss.item())

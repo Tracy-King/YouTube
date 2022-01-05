@@ -68,6 +68,8 @@ class TGN(torch.nn.Module):
     self.edge_feature_initiate()
     #print("type of self.edge_raw_feature", type(self.edge_raw_features))
     self.embedding_dict = dict()
+    self.last_updated_dict = np.zeros(self.n_nodes)
+
 
     self.memory = None
 
@@ -75,26 +77,26 @@ class TGN(torch.nn.Module):
     self.std_time_shift_src = std_time_shift_src
     self.mean_time_shift_dst = mean_time_shift_dst
     self.std_time_shift_dst = std_time_shift_dst
-
+    '''
     if self.use_memory:
       self.memory_dimension = memory_dimension
       self.memory_update_at_start = memory_update_at_start
       raw_message_dimension = 2 * self.message_dimension + self.n_edge_features + \
                               self.time_encoder.dimension
       message_dimension = message_dimension if message_function != "identity" else raw_message_dimension
-      '''
+      
       self.memory = Memory(n_nodes=self.n_nodes,
                            memory_dimension=self.memory_dimension,
                            input_dimension=message_dimension,
                            message_dimension=message_dimension,
                            device=device)
-      '''
+      
       self.message_aggregator = get_message_aggregator(aggregator_type=aggregator_type,
                                                        device=device)
       self.message_function = get_message_function(module_type=message_function,
                                                    raw_message_dimension=raw_message_dimension,
                                                    message_dimension=message_dimension)
-      '''
+      
       self.memory_updater = get_memory_updater(module_type=memory_updater_type,
                                                memory=self.memory,
                                                message_dimension=message_dimension,
@@ -200,6 +202,7 @@ class TGN(torch.nn.Module):
 
     memory = None
     time_diffs = None
+    '''
     if use_memory:
       if self.memory_update_at_start:
         # Update memory for all nodes with messages stored in previous batches
@@ -208,20 +211,20 @@ class TGN(torch.nn.Module):
       else:
         memory = self.memory.get_memory(list(range(self.n_nodes)))
         last_update = self.memory.last_update
-
+    '''
       ### Compute differences between the time the memory of a node was last updated,
       ### and the time for which we want to compute the embedding of a node
-      source_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
+    source_time_diffs = torch.LongTensor(edge_times).to(self.device) - self.last_updated_dict[
         source_nodes].long()
-      source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
-      destination_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
+    source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
+    destination_time_diffs = torch.LongTensor(edge_times).to(self.device) - self.last_updated_dict[
         destination_nodes].long()
-      destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
-      negative_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
+    destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
+    negative_time_diffs = torch.LongTensor(edge_times).to(self.device) - self.last_updated_dict[
         negative_nodes].long()
-      negative_time_diffs = (negative_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
+    negative_time_diffs = (negative_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
 
-      time_diffs = torch.cat([source_time_diffs, destination_time_diffs, negative_time_diffs],
+    time_diffs = torch.cat([source_time_diffs, destination_time_diffs, negative_time_diffs],
                              dim=0)
     node_raw_feature = torch.from_numpy(self.node_raw_features[nodes, :].astype(np.float32)).to(self.device)
     # Compute the embeddings using the embedding module
@@ -273,7 +276,7 @@ class TGN(torch.nn.Module):
 
     return source_node_embedding, destination_node_embedding, negative_node_embedding
 
-  def compute_temporal_embeddings(self, source_nodes, destination_nodes, negative_nodes, edge_times,
+  def compute_temporal_embeddings(self, source_nodes, destination_nodes, edge_times,
                                   edge_idxs, n_neighbors=20):
     """
     Compute temporal embeddings for sources, destinations, and negatively sampled destinations.
@@ -289,15 +292,16 @@ class TGN(torch.nn.Module):
     """
 
     if self.original_encoder:
-      return self.compute_temporal_embeddings_origin(source_nodes, destination_nodes, negative_nodes, edge_times,
+      return self.compute_temporal_embeddings_origin(source_nodes, destination_nodes, edge_times,
                                   edge_idxs, n_neighbors, use_memory=True)
     n_samples = len(source_nodes)
-    nodes = np.concatenate([source_nodes, destination_nodes, negative_nodes])
+    nodes = np.concatenate([source_nodes, destination_nodes])
     positives = np.concatenate([source_nodes, destination_nodes])
-    timestamps = np.concatenate([edge_times, edge_times, edge_times])
+    timestamps = np.concatenate([edge_times, edge_times])
 
     memory = None
     time_diffs = None
+    '''
     if self.use_memory:
       if self.memory_update_at_start:
         # Update memory for all nodes with messages stored in previous batches
@@ -306,21 +310,17 @@ class TGN(torch.nn.Module):
       else:
         memory = self.memory.get_memory(list(range(self.n_nodes)))
         last_update = self.memory.last_update
-
+    '''
       ### Compute differences between the time the memory of a node was last updated,
       ### and the time for which we want to compute the embedding of a node
-      source_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
-        source_nodes].long()
-      source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
-      destination_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
-        destination_nodes].long()
-      destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
-      negative_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
-        negative_nodes].long()
-      negative_time_diffs = (negative_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
+    source_time_diffs = torch.tensor(edge_times - self.last_updated_dict[
+        source_nodes]).to(self.device)
+    source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
+    destination_time_diffs = torch.tensor(edge_times - self.last_updated_dict[
+        destination_nodes]).to(self.device)
+    destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
 
-      time_diffs = torch.cat([source_time_diffs, destination_time_diffs, negative_time_diffs],
-                             dim=0)
+    time_diffs = torch.cat([source_time_diffs, destination_time_diffs], dim=0)
 
     start_idx = np.searchsorted(self.update_records_idx, edge_idxs[0])  # 第一个update record index
     end_idx = np.searchsorted(self.update_records_idx, edge_idxs[-1], side='right') - 1  # 最后一个update record index
@@ -339,11 +339,9 @@ class TGN(torch.nn.Module):
       if n_updates == 0:
         source_node_features = self.node_raw_features[source_nodes, :]
         destination_node_features = self.node_raw_features[destination_nodes, :]
-        negative_node_features = self.node_raw_features[negative_nodes, :]
       else:
         source_node_features = self.node_raw_features[source_nodes[:min(n_samples, update_nodes_idx[0])], :]
         destination_node_features = self.node_raw_features[destination_nodes[:min(n_samples, update_nodes_idx[0])], :]
-        negative_node_features = self.node_raw_features[negative_nodes[:min(n_samples, update_nodes_idx[0])], :]
 
         for i in range(n_updates-1):
           start_slice = update_nodes_idx[i]
@@ -354,8 +352,6 @@ class TGN(torch.nn.Module):
             (source_node_features, self.node_raw_features[source_nodes[start_slice:end_slice], :]))
           destination_node_features = np.vstack(
             (destination_node_features, self.node_raw_features[destination_nodes[start_slice:end_slice], :]))
-          negative_node_features = np.vstack(
-            (negative_node_features, self.node_raw_features[negative_nodes[start_slice:end_slice], :]))
 
       #self.node_raw_features[source_nodes[update_nodes_idx[-1]]] = updates[update_nodes_idx[-1]]
       #print(source_nodes[update_nodes_idx])
@@ -366,25 +362,23 @@ class TGN(torch.nn.Module):
             (source_node_features, self.node_raw_features[source_nodes[start_slice:], :]))
           destination_node_features = np.vstack(
             (destination_node_features, self.node_raw_features[destination_nodes[start_slice:], :]))
-          negative_node_features = np.vstack(
-            (negative_node_features, self.node_raw_features[negative_nodes[start_slice:], :]))
       #print(len(source_node_features))
       assert len(source_node_features) == n_samples, 'source_node_feature error'
       assert len(destination_node_features) == n_samples, 'destination_node_feature error'
-      assert len(negative_node_features) == n_samples, 'negative_node_features error'
 
     else:
       source_node_features = self.node_raw_features[source_nodes, :]
       destination_node_features = self.node_raw_features[destination_nodes, :]
-      negative_node_features = self.node_raw_features[negative_nodes, :]
 
     #print(type(source_node_features), type(destination_node_features), type(negative_node_features))
-    source_node_features = torch.from_numpy(source_node_features.astype(np.float32)).to(self.device)
-    destination_node_features = torch.from_numpy(destination_node_features.astype(np.float32)).to(self.device)
-    negative_node_features = torch.from_numpy(negative_node_features.astype(np.float32)).to(self.device)
-    node_features = torch.cat([source_node_features, destination_node_features, negative_node_features], 0)
+    node_features = np.vstack([source_node_features, destination_node_features])
+    node_features = torch.from_numpy(node_features.astype(np.float32)).to(self.device)
+    #source_node_features = torch.from_numpy(source_node_features.astype(np.float32)).to(self.device)
+    #destination_node_features = torch.from_numpy(destination_node_features.astype(np.float32)).to(self.device)
+    #negative_node_features = torch.from_numpy(negative_node_features.astype(np.float32)).to(self.device)
 
-    assert (node_features.shape[0] == 3*n_samples), 'node_features dimension 0 error'
+
+    assert (node_features.shape[0] == 2*n_samples), 'node_features dimension 0 error'
     assert (node_features.shape[1] == self.n_node_features), 'node_features dimension 1 error'
 
     self.embedding_module.update_node_features(updated_node_raw_features=self.node_raw_features)
@@ -398,8 +392,7 @@ class TGN(torch.nn.Module):
                                                              time_diffs=time_diffs)
 
     source_node_embedding = node_embedding[:n_samples]
-    destination_node_embedding = node_embedding[n_samples: 2 * n_samples]
-    negative_node_embedding = node_embedding[2 * n_samples:]
+    destination_node_embedding = node_embedding[n_samples:]
 
     for idx in range(len(source_nodes)-1, -1, -1):
       if source_nodes[idx] not in self.embedding_dict.keys():
@@ -410,6 +403,10 @@ class TGN(torch.nn.Module):
     self.embedding_module.update_old_embeddings(np.unique(np.concatenate([source_nodes, destination_nodes])), self.embedding_dict)
     self.embedding_dict.clear()
 
+    for i, ts in zip(nodes, timestamps):
+      self.last_updated_dict[i] = ts
+
+    '''
     if self.use_memory:
       if self.memory_update_at_start:
         # Persist the updates to the memory only for sources and destinations (since now we have
@@ -443,10 +440,9 @@ class TGN(torch.nn.Module):
       if self.dyrep:
         source_node_embedding = memory[source_nodes]
         destination_node_embedding = memory[destination_nodes]
-        negative_node_embedding = memory[negative_nodes]
+    '''
 
-
-    return source_node_embedding, destination_node_embedding, negative_node_embedding
+    return source_node_embedding, destination_node_embedding
 
 
 
