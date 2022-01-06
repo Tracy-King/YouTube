@@ -15,7 +15,7 @@ class DTArgs():
         self.batch_size = bs
         self.input_dim = input_dim
         self.output_dim = 2
-        self.max_depth = 8
+        self.max_depth = 6
         self.max_epochs = epochs
         self.lr = lr
         self.lmbda = 0.1

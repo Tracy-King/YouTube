@@ -7,6 +7,7 @@ import numpy as np
 import re
 import difflib
 from torch.autograd import Variable
+import datetime
 
 pd.set_option('display.max_columns', None)
 
@@ -18,11 +19,11 @@ print(torch.cuda.get_device_name(0))
 dataset_name = 'concat_full_v3.10'
 
 
-
+'''
 df = pd.read_csv('dynamicGraph/ml_concat_full_v3.10.csv')
 print(df['superchat'].value_counts())
 print(df['membership'].value_counts())
-'''
+
 a = [0, 1, 2]
 
 print(np.tile(a, (2, 1)))
@@ -48,7 +49,7 @@ test = new_data
 
 for (i, j), k in zip(new_data[10:20].iterrows(), range(10)):
   print(i, j, k)
-'''
+
 
 class args():
 
@@ -64,6 +65,11 @@ delete_list = [2, 3, 5]
 print(history_list)
 history_list = [history_list[idx] for idx in range(len(history_list)) if idx not in delete_list]
 print(history_list)
+'''
+path=''
+gpu_profile_fn = path + f'{datetime.datetime.now():%d-%b-%y-%H-%M-%S}-gpu_mem_track.txt'
+with open(gpu_profile_fn, 'a+') as f:
+    f.write(111)
 
 '''
 
