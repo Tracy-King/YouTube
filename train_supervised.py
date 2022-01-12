@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='1kxCz6tt2MU_v3.10')
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=10)
+                    default=50)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
@@ -42,15 +42,15 @@ parser.add_argument('--n_estimators', type=int, help='Number of estimators in de
                     default=3000)
 parser.add_argument('--max_depth', type=int, help='Number of maximum depth in decoder',
                     default=20)
-parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
-parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
+parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
+parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-1kxCz6tt2MU_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
+parser.add_argument('--lr', type=float, default=5e-3, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.1, help='Dropout probability')
@@ -222,8 +222,8 @@ for i in range(args.n_runs):
   #logger.info("TGN models loaded")
   logger.info("Start training node classification task")
 
-  #decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
-  #decoders = [decoder.to(device) for decoder in decoders]
+  decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
+  decoders = [decoder.to(device) for decoder in decoders]
 
   #if DECODER=='GBDT':
   #  decoder = GradientBoostingClassifier(max_depth=args.max_depth, n_estimators=args.n_estimators, learning_rate=LEARNING_RATE)
@@ -233,7 +233,9 @@ for i in range(args.n_runs):
   #decoder = SoftDecisionTree(DTargs).to(device)
   decoder = MLP(node_features.shape[1], drop=DROP_OUT).to(device)
 
-  params = list(tgn.parameters()) + list(decoder.parameters())
+  params = list(tgn.parameters())
+  for decoder in decoders:
+    params = params + list(decoder.parameters())
   #params = [decoder.parameters() for decoder in decoders]
   #params = params + list(tgn.parameters())
   optimizer = torch.optim.Adam(params, lr=LEARNING_RATE)
@@ -257,8 +259,8 @@ for i in range(args.n_runs):
       tgn.memory.__init_memory__()
 
     tgn = tgn.train()
-    decoder = decoder.train()
-    #decoders = [decoder.train() for decoder in decoders]
+    #decoder = decoder.train()
+    decoders = [decoder.train() for decoder in decoders]
     loss = 0
     optimizer.zero_grad()
     
@@ -297,11 +299,12 @@ for i in range(args.n_runs):
                                        n_neighbors=NUM_NEIGHBORS)
         '''
 
-      pred = decoder(source_embedding).sigmoid()
+      #pred = decoder(source_embedding).sigmoid()
 
       #  decoder_loss_criterion = torch.nn.MSELoss()
         # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
       torch.cuda.empty_cache()
+      decoder_loss = 0
       if (torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0:
           print("max and min and inf of pos_prob: ", min(source_embedding), max(source_embedding),
                   (torch.isfinite(source_embedding) == False).nonzero().shape[0])
@@ -344,7 +347,9 @@ for i in range(args.n_runs):
           #decoder_loss, pred = decoder.train_(source_embedding, labels_batch_torch, size)
           #print(decoder.evals_result())
           #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
-          decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+          for decoder in decoders:
+            pred = decoder(source_embedding).sigmoid()
+            decoder_loss += decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       else:
           sample_index = random.sample(list(range(size)), int(size/10))
           #print(len(sample_index))
@@ -363,7 +368,7 @@ for i in range(args.n_runs):
       #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss']) if DECODER=='XGB' else 0.0
       decoder_loss.backward()
       optimizer.step()
-      loss += decoder_loss
+      loss += decoder_loss / N_DECODERS
       if (k%100==0):
         print(k, loss)
         gpu_tracker.track()
@@ -371,7 +376,7 @@ for i in range(args.n_runs):
     gpu_tracker.track()
 
 
-    val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoder, val_data, full_data.edge_idxs, NODE_DIM,
+    val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoders, val_data, full_data.edge_idxs, NODE_DIM,
                                                                           BATCH_SIZE, n_neighbors=NUM_NEIGHBORS, device=device)
 
     val_aucs.append(val_auc)

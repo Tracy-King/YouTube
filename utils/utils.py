@@ -22,7 +22,7 @@ class MLP(torch.nn.Module):
   def __init__(self, dim, drop=0.3):
     super().__init__()
     self.fc_1 = torch.nn.Linear(dim, 64)
-    #self.fc_2 = torch.nn.Linear(80, 10)
+    #self.fc_2 = torch.nn.Linear(64, 10)
     self.fc_3 = torch.nn.Linear(64, 1)
     torch.nn.init.xavier_normal_(self.fc_1.weight, gain=1)
     #torch.nn.init.xavier_normal_(self.fc_2.weight, gain=1)
