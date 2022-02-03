@@ -251,3 +251,5 @@ dynamicGraph/
 *zip
 dynamicGraphv2/
 *mem_track.txt
+*.pkl
+*.json

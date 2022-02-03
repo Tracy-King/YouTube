@@ -293,7 +293,7 @@ class TGN(torch.nn.Module):
 
     if self.original_encoder:
       return self.compute_temporal_embeddings_origin(source_nodes, destination_nodes, edge_times,
-                                  edge_idxs, n_neighbors, use_memory=True)
+                                                     edge_idxs, n_neighbors, use_memory=True)
     n_samples = len(source_nodes)
     nodes = np.concatenate([source_nodes, destination_nodes])
     positives = np.concatenate([source_nodes, destination_nodes])
@@ -311,13 +311,13 @@ class TGN(torch.nn.Module):
         memory = self.memory.get_memory(list(range(self.n_nodes)))
         last_update = self.memory.last_update
     '''
-      ### Compute differences between the time the memory of a node was last updated,
-      ### and the time for which we want to compute the embedding of a node
+    ### Compute differences between the time the memory of a node was last updated,
+    ### and the time for which we want to compute the embedding of a node
     source_time_diffs = torch.tensor(edge_times - self.last_updated_dict[
-        source_nodes]).to(self.device)
+      source_nodes]).to(self.device)
     source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
     destination_time_diffs = torch.tensor(edge_times - self.last_updated_dict[
-        destination_nodes]).to(self.device)
+      destination_nodes]).to(self.device)
     destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
 
     time_diffs = torch.cat([source_time_diffs, destination_time_diffs], dim=0)
@@ -329,11 +329,11 @@ class TGN(torch.nn.Module):
       if start_idx == end_idx:
         updates_idx = [self.update_records_idx[start_idx]]
       else:
-        updates_idx = self.update_records_idx[start_idx: end_idx]    # edge index
-      #print('update_idx:', updates_idx)
-      #print(edge_idxs)
-      update_nodes_idx = [int(np.searchsorted(edge_idxs, i)) for i in updates_idx]   # edge对应的node list内的index
-      #print('update_nodes_idx:', update_nodes_idx)
+        updates_idx = self.update_records_idx[start_idx: end_idx]  # edge index
+      # print('update_idx:', updates_idx)
+      # print(edge_idxs)
+      update_nodes_idx = [int(np.searchsorted(edge_idxs, i)) for i in updates_idx]  # edge对应的node list内的index
+      # print('update_nodes_idx:', update_nodes_idx)
       n_updates = len(updates_idx)
 
       if n_updates == 0:
@@ -343,9 +343,9 @@ class TGN(torch.nn.Module):
         source_node_features = self.node_raw_features[source_nodes[:min(n_samples, update_nodes_idx[0])], :]
         destination_node_features = self.node_raw_features[destination_nodes[:min(n_samples, update_nodes_idx[0])], :]
 
-        for i in range(n_updates-1):
+        for i in range(n_updates - 1):
           start_slice = update_nodes_idx[i]
-          end_slice = update_nodes_idx[i+1]
+          end_slice = update_nodes_idx[i + 1]
           self.update_node_features(source_nodes[start_slice], updates_idx[i])
 
           source_node_features = np.vstack(
@@ -353,8 +353,8 @@ class TGN(torch.nn.Module):
           destination_node_features = np.vstack(
             (destination_node_features, self.node_raw_features[destination_nodes[start_slice:end_slice], :]))
 
-      #self.node_raw_features[source_nodes[update_nodes_idx[-1]]] = updates[update_nodes_idx[-1]]
-      #print(source_nodes[update_nodes_idx])
+          # self.node_raw_features[source_nodes[update_nodes_idx[-1]]] = updates[update_nodes_idx[-1]]
+          # print(source_nodes[update_nodes_idx])
           self.update_node_features(source_nodes[update_nodes_idx[-1]], updates_idx[-1])
         if update_nodes_idx[-1] < n_samples:
           start_slice = update_nodes_idx[-1]
@@ -362,7 +362,7 @@ class TGN(torch.nn.Module):
             (source_node_features, self.node_raw_features[source_nodes[start_slice:], :]))
           destination_node_features = np.vstack(
             (destination_node_features, self.node_raw_features[destination_nodes[start_slice:], :]))
-      #print(len(source_node_features))
+      # print(len(source_node_features))
       assert len(source_node_features) == n_samples, 'source_node_feature error'
       assert len(destination_node_features) == n_samples, 'destination_node_feature error'
 
@@ -370,37 +370,37 @@ class TGN(torch.nn.Module):
       source_node_features = self.node_raw_features[source_nodes, :]
       destination_node_features = self.node_raw_features[destination_nodes, :]
 
-    #print(type(source_node_features), type(destination_node_features), type(negative_node_features))
+    # print(type(source_node_features), type(destination_node_features), type(negative_node_features))
     node_features = np.vstack([source_node_features, destination_node_features])
     node_features = torch.from_numpy(node_features.astype(np.float32)).to(self.device)
-    #source_node_features = torch.from_numpy(source_node_features.astype(np.float32)).to(self.device)
-    #destination_node_features = torch.from_numpy(destination_node_features.astype(np.float32)).to(self.device)
-    #negative_node_features = torch.from_numpy(negative_node_features.astype(np.float32)).to(self.device)
+    # source_node_features = torch.from_numpy(source_node_features.astype(np.float32)).to(self.device)
+    # destination_node_features = torch.from_numpy(destination_node_features.astype(np.float32)).to(self.device)
+    # negative_node_features = torch.from_numpy(negative_node_features.astype(np.float32)).to(self.device)
 
-
-    assert (node_features.shape[0] == 2*n_samples), 'node_features dimension 0 error'
+    assert (node_features.shape[0] == 2 * n_samples), 'node_features dimension 0 error'
     assert (node_features.shape[1] == self.n_node_features), 'node_features dimension 1 error'
 
     self.embedding_module.update_node_features(updated_node_raw_features=self.node_raw_features)
-    #print(type(node_features))
+    # print(type(node_features))
     # Compute the embeddings using the embedding module
     node_embedding = self.embedding_module.compute_embeddingv2(source_node_raw_features=node_features,
-                                                             source_nodes=nodes,
-                                                             timestamps=timestamps,
-                                                             n_layers=self.n_layers,
-                                                             n_neighbors=n_neighbors,
-                                                             time_diffs=time_diffs)
+                                                               source_nodes=nodes,
+                                                               timestamps=timestamps,
+                                                               n_layers=self.n_layers,
+                                                               n_neighbors=n_neighbors,
+                                                               time_diffs=time_diffs)
 
     source_node_embedding = node_embedding[:n_samples]
     destination_node_embedding = node_embedding[n_samples:]
 
-    for idx in range(len(source_nodes)-1, -1, -1):
+    for idx in range(len(source_nodes) - 1, -1, -1):
       if source_nodes[idx] not in self.embedding_dict.keys():
         self.embedding_dict[source_nodes[idx]] = source_node_embedding[idx].clone().detach().cpu().numpy()
       if destination_nodes[idx] not in self.embedding_dict.keys():
         self.embedding_dict[destination_nodes[idx]] = destination_node_embedding[idx].clone().detach().cpu().numpy()
-    #print(self.embedding_dict.keys())
-    self.embedding_module.update_old_embeddings(np.unique(np.concatenate([source_nodes, destination_nodes])), self.embedding_dict)
+    # print(self.embedding_dict.keys())
+    self.embedding_module.update_old_embeddings(np.unique(np.concatenate([source_nodes, destination_nodes])),
+                                                self.embedding_dict)
     self.embedding_dict.clear()
 
     for i, ts in zip(nodes, timestamps):
@@ -443,7 +443,6 @@ class TGN(torch.nn.Module):
     '''
 
     return source_node_embedding, destination_node_embedding
-
 
 
   def compute_edge_probabilities(self, source_nodes, destination_nodes, negative_nodes, edge_times,

@@ -262,8 +262,8 @@ if __name__ == '__main__':
         save_file(df, video_id + '_v3.10', update_records, feat_n)
 
     '''
-    concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0',
-                    '97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+    concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ']#, 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
+    #                ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
     # concat_list = ['fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
     
     data = 0#pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
@@ -287,7 +287,7 @@ if __name__ == '__main__':
             #print(end_time)
     
     print(data.info())
-    data.to_pickle('../dynamicGraph/concat_full_v3.10_tmp3.pkl')
+    data.to_pickle('../dynamicGraph/concat_week_v3.10_tmp3.pkl')
     '''
     #data1 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
     #data2 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp2.pkl')
@@ -300,7 +300,7 @@ if __name__ == '__main__':
     data.to_pickle('../dynamicGraph/concat_full_v3.pkl')
     '''
     df, feat_n, update_records, node_dict = preprocess(data)
-    save_file(df, 'concat_full_v3.10', update_records, feat_n)
+    save_file(df, 'concat_week_v3.10', update_records, feat_n)
 
     # print(data)
     # print(data[(data['video_id']=='277076677') & (data['commenter_id']=='113567493')])

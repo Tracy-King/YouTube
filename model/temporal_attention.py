@@ -24,7 +24,7 @@ class TemporalAttentionLayer(torch.nn.Module):
     self.query_dim = n_node_old_embedding + time_dim
     self.key_dim = n_neighbors_features + time_dim + n_edge_features
 
-    self.merger = MergeLayer(self.query_dim, n_node_features, n_node_features, output_dimension)
+    self.merger = MergeLayer(self.query_dim, n_node_old_embedding, n_node_features, output_dimension)
 
     self.multi_head_target = nn.MultiheadAttention(embed_dim=self.query_dim,
                                                    kdim=self.key_dim,
@@ -49,14 +49,16 @@ class TemporalAttentionLayer(torch.nn.Module):
     """
 
     src_node_features_unrolled = torch.unsqueeze(src_node_features, dim=1)
-    #src_node_old_embedding_unrolled = torch.unsqueeze(src_node_old_embedding, dim=1)
+    src_node_old_embedding_unrolled = torch.unsqueeze(src_node_old_embedding, dim=1)
     query = torch.cat([src_node_features_unrolled, src_time_features], dim=2)
     key = torch.cat([neighbors_features, edge_features, neighbors_time_features], dim=2)
+
 
     # print(neighbors_features.shape, edge_features.shape, neighbors_time_features.shape)
     # Reshape tensors so to expected shape by multi head attention
     query = query.permute([1, 0, 2])  # [1, batch_size, num_of_features]
     key = key.permute([1, 0, 2])  # [n_neighbors, batch_size, num_of_features]
+
 
     # Compute mask of which source nodes have no valid neighbors
     invalid_neighborhood_mask = neighbors_padding_mask.all(dim=1, keepdim=True)
@@ -84,6 +86,7 @@ class TemporalAttentionLayer(torch.nn.Module):
     # This means that an all zero vector is not used.
     attn_output = attn_output.masked_fill(invalid_neighborhood_mask, 0)
     attn_output_weights = attn_output_weights.masked_fill(invalid_neighborhood_mask, 0)
+    #print(attn_output.shape)
 
     # Skip connection with temporal attention over neighborhood and the features of the node itself
     attn_output = self.merger(attn_output, src_node_old_embedding)

@@ -7,7 +7,7 @@ class MergeLayer(torch.nn.Module):
     super().__init__()
     self.fc1 = torch.nn.Linear(dim1 + dim2, dim3)
     self.fc2 = torch.nn.Linear(dim3, dim4)
-    self.act = torch.nn.ReLU()
+    self.act = torch.nn.PReLU()
 
     torch.nn.init.xavier_normal_(self.fc1.weight)
     torch.nn.init.xavier_normal_(self.fc2.weight)
@@ -29,7 +29,7 @@ class MLP(torch.nn.Module):
     torch.nn.init.xavier_normal_(self.fc_3.weight, gain=1)
     self.bn_1 = torch.nn.BatchNorm1d(64)
     #self.bn_2 = torch.nn.BatchNorm1d(10)
-    self.act = torch.nn.ReLU()
+    self.act = torch.nn.PReLU()
     self.dropout = torch.nn.Dropout(p=drop, inplace=False)
 
   def forward(self, x):
@@ -100,7 +100,7 @@ def get_neighbor_finder(data, uniform, max_node_idx=None):
                                                       data.edge_idxs,
                                                       data.timestamps):
     adj_list[source].append((destination, edge_idx, timestamp))
-    #adj_list[destination].append((source, edge_idx, timestamp))
+    adj_list[destination].append((source, edge_idx, timestamp))
 
   return NeighborFinder(adj_list, uniform=uniform)
 
@@ -170,7 +170,7 @@ class NeighborFinder:
       np.int32)  # each entry in position (i,j) represent the interaction index of an interaction between user src_idx_l[i] and item neighbors[i,j] happening before cut_time_l[i]
 
     for i, (source_node, timestamp) in enumerate(zip(source_nodes, timestamps)):
-      source_neighbors, source_edge_idxs, source_edge_times = self.find_between(source_node,
+      source_neighbors, source_edge_idxs, source_edge_times = self.find_before(source_node,
                                                    timestamp)  # extracts all neighbors, interactions indexes and timestamps of all interactions of user source_node happening before cut_time
 
       if len(source_neighbors) > 0 and n_neighbors > 0:
