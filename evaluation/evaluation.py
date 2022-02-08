@@ -183,12 +183,13 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
                                                                                    n_neighbors)
       #pred_prob_batch = decoder(source_embedding).sigmoid()
 
-      pred[s_idx: e_idx] = source_embedding
+      #pred[s_idx: e_idx] = source_embedding
 
       #pred_label = [int(n + 0.5) for n in pred_prob]
 
 
-      # pred_prob_batch = decoder.test_(source_embedding).sigmoid().cpu().numpy()
+      #pred_prob_batch = decoder.predict(source_embedding).cpu().numpy()
+      pred[s_idx: e_idx] = source_embedding
       #pred_prob_num[s_idx: e_idx] = np.sum(pred_prob_batch >= 0.5, axis=0)
       # pred_prob[s_idx: e_idx] = np.mean(pred_prob_batch, axis=0)
       '''    # rank start
@@ -226,6 +227,7 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
     pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
   #print(pred.device, next(decoder.parameters()).is_cuda, source_embedding.device)
   #pred_prob = decoder(pred).sigmoid()
+  pred_label = decoder.predict(pred)
   # pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
   #pred_label = [int(n+0.5) for n in pred_prob]
   # print(set(pred_label))
@@ -233,8 +235,8 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
   # print(pred_prob[10:])
   #test_x = pred.clone().detach().cpu().numpy()
   #test_y = data.labels
-  target = torch.from_numpy(data.labels).long().to(device)
-  pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
+  #target = torch.from_numpy(data.labels).long().to(device)
+  #pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
 
 
   print(set(pred_label))

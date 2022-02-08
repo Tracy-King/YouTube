@@ -182,7 +182,7 @@ class TGN(torch.nn.Module):
     return
 
   def compute_temporal_embeddings_origin(self, source_nodes, destination_nodes, negative_nodes, edge_times,
-                                  edge_idxs, n_neighbors=20, use_memory=True):
+                                  edge_idxs, n_neighbors=20, use_memory=False):
     """
     Compute temporal embeddings for sources, destinations, and negatively sampled destinations.
     source_nodes [batch_size]: source ids.
@@ -214,14 +214,14 @@ class TGN(torch.nn.Module):
     '''
       ### Compute differences between the time the memory of a node was last updated,
       ### and the time for which we want to compute the embedding of a node
-    source_time_diffs = torch.LongTensor(edge_times).to(self.device) - self.last_updated_dict[
-        source_nodes].long()
+    source_time_diffs = torch.LongTensor(edge_times - self.last_updated_dict[
+        source_nodes]).to(self.device)
     source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
-    destination_time_diffs = torch.LongTensor(edge_times).to(self.device) - self.last_updated_dict[
-        destination_nodes].long()
+    destination_time_diffs = torch.LongTensor(edge_times - self.last_updated_dict[
+        destination_nodes]).to(self.device)
     destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
-    negative_time_diffs = torch.LongTensor(edge_times).to(self.device) - self.last_updated_dict[
-        negative_nodes].long()
+    negative_time_diffs = torch.LongTensor(edge_times - self.last_updated_dict[
+        negative_nodes]).to(self.device)
     negative_time_diffs = (negative_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
 
     time_diffs = torch.cat([source_time_diffs, destination_time_diffs, negative_time_diffs],
@@ -465,7 +465,7 @@ class TGN(torch.nn.Module):
         self.compute_temporal_embeddings_origin( source_nodes, destination_nodes, negative_nodes,
                                                  edge_times, edge_idxs, n_neighbors)
     else:
-      source_node_embedding, destination_node_embedding, negative_node_embedding = self.compute_temporal_embeddings(
+      source_node_embedding, destination_node_embedding, negative_node_embedding = self.compute_temporal_embeddings_origin(
       source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs, n_neighbors)
 
     score = self.affinity_score(torch.cat([source_node_embedding, source_node_embedding], dim=0),

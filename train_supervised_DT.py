@@ -45,7 +45,7 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
 parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='tgn-attn-1kxCz6tt2MU_v2', help='Prefix to name the checkpoints')
+parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
@@ -165,9 +165,9 @@ device_string = "cuda:{}".format(GPU) if torch.cuda.is_available() else "cpu"
 device = torch.device(device_string)
 
 
-gpu_tracker = MemTracker()
-print('Initial')
-gpu_tracker.track()
+#gpu_tracker = MemTracker()
+#print('Initial')
+#gpu_tracker.track()
 
 full_data, node_features, edge_features, update_records, train_data, val_data, test_data = \
   get_data_node_classification(DATA, TAG, DATASET_R1, DATASET_R2, NODE_DIM, device, use_validation=args.use_validation)
@@ -225,15 +225,15 @@ for i in range(args.n_runs):
   #decoders = [MLP(node_features.shape[1], drop=DROP_OUT) for _ in range(N_DECODERS)]
   #decoders = [decoder.to(device) for decoder in decoders]
 
-  #if DECODER=='GBDT':
-  #  decoder = GradientBoostingClassifier(max_depth=args.max_depth, n_estimators=args.n_estimators, learning_rate=LEARNING_RATE)
-  #elif DECODER=='XGB':
-  #  decoder = xgb.XGBClassifier(max_depth=args.max_depth, learning_rate=LEARNING_RATE, n_estimators=args.n_estimators,
-  #                            objective='reg:logistic', use_label_encoder=False)
-  decoder = SoftDecisionTree(DTargs).to(device)
+  if DECODER=='GBDT':
+    decoder = GradientBoostingClassifier(max_depth=args.max_depth, n_estimators=args.n_estimators, learning_rate=LEARNING_RATE)
+  elif DECODER=='XGB':
+    decoder = xgb.XGBClassifier(max_depth=args.max_depth, learning_rate=LEARNING_RATE, n_estimators=args.n_estimators,
+                              objective='reg:logistic', use_label_encoder=False)
+  #decoder = SoftDecisionTree(DTargs).to(device)
   #decoder = MLP(node_features.shape[1], drop=DROP_OUT).to(device)
 
-  params = list(tgn.parameters()) + list(decoder.parameters())
+  params = list(tgn.parameters())# + list(decoder.parameters())
   #params = [decoder.parameters() for decoder in decoders]
   #params = params + list(tgn.parameters())
   optimizer = torch.optim.Adam(params, lr=LEARNING_RATE)
@@ -257,7 +257,7 @@ for i in range(args.n_runs):
       tgn.memory.__init_memory__()
 
     tgn = tgn.train()
-    decoder = decoder.train()
+    #decoder = decoder.train()
     #decoders = [decoder.train() for decoder in decoders]
     loss = 0
     optimizer.zero_grad()
@@ -281,8 +281,8 @@ for i in range(args.n_runs):
                                                                                      edge_idxs_batch,
                                                                                      NUM_NEIGHBORS)
 
-      labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
-      #labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+      #labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
+      labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
       '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
@@ -327,23 +327,25 @@ for i in range(args.n_runs):
           random.shuffle(sample_pos_index)
           sample_index = sample_pos_index
 
-          #train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
-          #train_y = labels_batch[sample_index]
+          train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
+          train_y = labels_batch[sample_index]
           #train_x = source_embedding.clone().detach().cpu().numpy()
           #train_y = labels_batch
           #print(len(sample_index))
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
           #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
-          #if DECODER=='GBDT':
-          #  decoder.fit(train_x, train_y)   
-          #elif DECODER=='XGB':
-          #  decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
+          if DECODER=='GBDT':
+            decoder.fit(train_x, train_y)
+            decoder_loss = torch.tensor([0.0])
+          elif DECODER=='XGB':
+            decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
+            print(decoder.evals_result())
+            decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
           #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
           #decoder.fit(train_x, train_y)    # for GBDT
-          decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
-          #print(decoder.evals_result())
-          #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
+          #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], len(sample_index))
+
           #decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       else:
           sample_index = random.sample(list(range(size)), int(size/10))
@@ -361,14 +363,14 @@ for i in range(args.n_runs):
           #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], size)
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss']) if DECODER=='XGB' else 0.0
-      decoder_loss.backward()
-      optimizer.step()
-      loss += decoder_loss
+      #decoder_loss.backward()
+      #optimizer.step()
+      #loss += decoder_loss
       if (k%100==0):
         print(k, loss)
-        gpu_tracker.track()
+        #gpu_tracker.track()
     train_losses.append(loss.item())
-    gpu_tracker.track()
+    #gpu_tracker.track()
 
 
     val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification_DT(tgn, decoder, val_data, full_data.edge_idxs, NODE_DIM,
