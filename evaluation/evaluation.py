@@ -166,7 +166,7 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
   with torch.no_grad():
     # [decoder.eval() for decoder in decoders]
     tgn.eval()
-    decoder.eval()
+    #decoder.eval()
     for k in range(num_batch):
       s_idx = k * batch_size
       e_idx = min(num_instance, s_idx + batch_size)
@@ -227,7 +227,7 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
     pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
   #print(pred.device, next(decoder.parameters()).is_cuda, source_embedding.device)
   #pred_prob = decoder(pred).sigmoid()
-  pred_label = decoder.predict(pred)
+  pred_label = decoder.predict(pred.cpu().numpy())
   # pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
   #pred_label = [int(n+0.5) for n in pred_prob]
   # print(set(pred_label))
@@ -239,7 +239,7 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
   #pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
 
 
-  print(set(pred_label))
+  #print(set(pred_label))
 
   acc = accuracy_score(data.labels, pred_label)
   pre = precision_score(data.labels, pred_label)
@@ -251,7 +251,7 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
   auc_roc = roc_auc_score(data.labels, pred_label)
   return auc_roc, acc, pre, rec, cm
 
-
+'''
 def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_size, n_neighbors, device):
   pred = torch.zeros((len(data.sources), node_dim)).to(device)
   num_instance = len(data.sources)
@@ -284,7 +284,7 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
       # pred_prob_batch = decoder.test_(source_embedding).sigmoid().cpu().numpy()
       # pred_prob_num[s_idx: e_idx] = np.sum(pred_prob_batch >= 0.5, axis=0)
       # pred_prob[s_idx: e_idx] = np.mean(pred_prob_batch, axis=0)
-      '''    # rank start
+      ''''''    # rank start
   n_decoder = len(decoders)
   pred_rank_index = pred_prob.argsort()[-min(num_instance, 2*data.n_pos):]
   true_rank_index = data.labels.argsort()[-min(num_instance, 2*data.n_pos):]
@@ -309,7 +309,7 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
     # rank end
   np.savetxt("./pred_prob.csv", pred_prob, delimiter=' ')
   np.savetxt("./true_label.csv", data.labels, delimiter=' ')
-  '''
+  ''''''
 
   if (torch.isfinite(pred) == False).nonzero().shape[0] != 0:
     pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
@@ -336,3 +336,4 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
   # print(data.labels.shape, pred_prob.shape, pred_prob)
   auc_roc = roc_auc_score(data.labels, pred_label)
   return auc_roc, acc, pre, rec, cm
+'''

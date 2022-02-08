@@ -17,7 +17,7 @@ from model.tgn import TGN
 from model.softDT import DTArgs, SoftDecisionTree
 from utils.utils import EarlyStopMonitor, get_neighbor_finder, MLP
 from utils.data_processing import compute_time_statistics, get_data_node_classification
-from evaluation.evaluation import eval_node_classification, eval_node_classification_DT
+from evaluation.evaluation import eval_node_classification
 
 from gpu_mem_track import MemTracker
 
@@ -369,7 +369,7 @@ for i in range(args.n_runs):
       if (k%100==0):
         print(k, loss)
         #gpu_tracker.track()
-    train_losses.append(0.0)
+    #train_losses.append(loss.item())
     #gpu_tracker.track()
 
 
