@@ -315,10 +315,10 @@ class TGN(torch.nn.Module):
     ### and the time for which we want to compute the embedding of a node
     source_time_diffs = torch.tensor(edge_times - self.last_updated_dict[
       source_nodes]).to(self.device)
-    source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
+    #source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
     destination_time_diffs = torch.tensor(edge_times - self.last_updated_dict[
       destination_nodes]).to(self.device)
-    destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
+    #destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
 
     time_diffs = torch.cat([source_time_diffs, destination_time_diffs], dim=0)
 

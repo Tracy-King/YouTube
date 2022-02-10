@@ -23,21 +23,25 @@ class MLP(torch.nn.Module):
     super().__init__()
     self.fc_1 = torch.nn.Linear(dim, 64)
     #self.fc_2 = torch.nn.Linear(64, 10)
-    self.fc_3 = torch.nn.Linear(64, 1)
+    self.fc_3 = torch.nn.Linear(64, 2)
     torch.nn.init.xavier_normal_(self.fc_1.weight, gain=1)
     #torch.nn.init.xavier_normal_(self.fc_2.weight, gain=1)
     torch.nn.init.xavier_normal_(self.fc_3.weight, gain=1)
     self.bn_1 = torch.nn.BatchNorm1d(64)
     #self.bn_2 = torch.nn.BatchNorm1d(10)
+    self.bn_3 = torch.nn.BatchNorm1d(2)
     self.act = torch.nn.PReLU()
     self.dropout = torch.nn.Dropout(p=drop, inplace=False)
+
 
   def forward(self, x):
     x = self.act(self.bn_1(self.fc_1(x)))
     x = self.dropout(x)
     #x = self.act(self.bn_2(self.fc_2(x)))
     #x = self.dropout(x)
-    return self.fc_3(x).squeeze(dim=1)
+    x = self.act(self.bn_3(self.fc_3(x)))
+    x = self.dropout(x)
+    return torch.nn.functional.softmax(x, dim=1).squeeze(dim=1)
 
 
 class EarlyStopMonitor(object):
@@ -136,7 +140,7 @@ class NeighborFinder:
 
     return self.node_to_neighbors[src_idx][:i], self.node_to_edge_idxs[src_idx][:i], self.node_to_edge_timestamps[src_idx][:i]
 
-  def find_between(self, src_idx, cut_time, window=30):  # 找到cut_time 之前的node src_idx的所有neighbor, edge, index
+  def find_between(self, src_idx, cut_time, window=90):  # 找到cut_time 之前的node src_idx的所有neighbor, edge, index
     """
     Extracts all the interactions happening before cut_time for user src_idx in the overall interaction graph. The returned interactions are sorted by time.
 
@@ -170,7 +174,7 @@ class NeighborFinder:
       np.int32)  # each entry in position (i,j) represent the interaction index of an interaction between user src_idx_l[i] and item neighbors[i,j] happening before cut_time_l[i]
 
     for i, (source_node, timestamp) in enumerate(zip(source_nodes, timestamps)):
-      source_neighbors, source_edge_idxs, source_edge_times = self.find_before(source_node,
+      source_neighbors, source_edge_idxs, source_edge_times = self.find_between(source_node,
                                                    timestamp)  # extracts all neighbors, interactions indexes and timestamps of all interactions of user source_node happening before cut_time
 
       if len(source_neighbors) > 0 and n_neighbors > 0:

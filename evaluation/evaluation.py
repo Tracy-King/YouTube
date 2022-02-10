@@ -129,8 +129,10 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
     pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
   #print(pred.device, next(decoder.parameters()).is_cuda, source_embedding.device)
   for d_idx in range(len(decoders)):
-    pred_prob = decoders[d_idx](pred).sigmoid()
-    pred_prob_num[d_idx] = torch.tensor([int(n+0.5) for n in pred_prob])
+    pred_prob = decoders[d_idx](pred)
+    #pred_prob = torch.argmax(decoders[d_idx](source_embedding), dim=1)
+    #pred_prob_num[d_idx] = torch.tensor([int(n+0.5) for n in pred_prob])
+    pred_prob_num[d_idx] = torch.argmax(pred_prob, dim=1)
   pred_prob_num = torch.sum(pred_prob_num, 0).detach().cpu().numpy()
   pred_label = [1 if n >= (len(decoders) / 2) else 0 for n in pred_prob_num]
 

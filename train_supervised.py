@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='1kxCz6tt2MU_v3.10')
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=10)
+                    default=30)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
@@ -50,10 +50,10 @@ parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbor
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
+parser.add_argument('--lr', type=float, default=5e-4, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
-parser.add_argument('--drop_out', type=float, default=0.2, help='Dropout probability')
+parser.add_argument('--drop_out', type=float, default=0.0, help='Dropout probability')
 parser.add_argument('--gpu', type=int, default=0, help='Idx for the gpu to use')
 parser.add_argument('--node_dim', type=int, default=128, help='Dimensions of the node embedding')
 parser.add_argument('--time_dim', type=int, default=128, help='Dimensions of the time embedding')
@@ -124,7 +124,7 @@ NUM_EPOCH = args.n_epoch
 NUM_HEADS = args.n_head
 DROP_OUT = args.drop_out
 GPU = args.gpu
-UNIFORM = False#args.uniform
+UNIFORM = args.uniform
 NEW_NODE = args.new_node
 SEQ_LEN = NUM_NEIGHBORS
 DATA = args.data
@@ -287,7 +287,9 @@ for i in range(args.n_runs):
                                                                                      NUM_NEIGHBORS)
 
       #labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
-      labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+      labels_batch_torch = torch.from_numpy(labels_batch)
+      ones = torch.sparse.torch.eye(2)
+      labels_batch_onehot = ones.index_select(0, labels_batch_torch).float().to(device)
       '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
@@ -316,8 +318,8 @@ for i in range(args.n_runs):
           pos_count = np.count_nonzero(labels_batch)
           neg_count = size - pos_count
           pos_weight = neg_count / (pos_count + 1)
-          #print("pos_weight:{}".format(pos_weight))
-
+          #print("pos_weight:{}, pos count:{}".format(pos_weight, pos_count))
+          '''
           # under sampling start
           index = list(range(size))
           sample_pos_index = []
@@ -327,12 +329,13 @@ for i in range(args.n_runs):
           if len(sample_pos_index) == 0:
             continue
           sample_neg_index = random.sample([i for i in index if i not in sample_pos_index],
-                                         min((len(sample_pos_index)+1), size-len(sample_pos_index)))
+                                         min(3*(len(sample_pos_index)+1), size-len(sample_pos_index)))
           #sample_neg_index = random.sample([i for i in index if i not in sample_pos_index], (len(sample_pos_index) + 1))
           sample_pos_index.extend(sample_neg_index)
-          random.shuffle(sample_pos_index)
+          #random.shuffle(sample_pos_index)
           sample_index = sample_pos_index
-
+          # under sampling end
+          '''
           #train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
           #train_y = labels_batch[sample_index]
           #train_x = source_embedding.clone().detach().cpu().numpy()
@@ -340,7 +343,7 @@ for i in range(args.n_runs):
           #print(len(sample_index))
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
-          #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
+          decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
           #if DECODER=='GBDT':
           #  decoder.fit(train_x, train_y)   
           #elif DECODER=='XGB':
@@ -351,8 +354,9 @@ for i in range(args.n_runs):
           #print(decoder.evals_result())
           #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
           for decoder in decoders:
-            pred = decoder(source_embedding).sigmoid()
-            decoder_loss += decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
+            pred = decoder(source_embedding)
+            decoder_loss = decoder_loss_criterion(pred, labels_batch_onehot)
+            #decoder_loss += decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
       else:
           sample_index = random.sample(list(range(size)), int(size/10))
           #print(len(sample_index))
