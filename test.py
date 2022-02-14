@@ -19,14 +19,11 @@ print(torch.cuda.get_device_name(0))
 dataset_name = 'concat_full_v3.10'
 dataset_name2 = 'concat_week_v3.10'
 
+a = torch.tensor([0.1, 0.5, 0.6])
 
-node_features = np.load('dynamicGraph/ml_{}_node.npy'.format(dataset_name2))
-df = pd.read_csv('dynamicGraph/ml_{}.csv'.format(dataset_name2))
+a = (a+0.5).trunc()
 
-print(df.info())
-print(df['superchat'].value_counts())
-print(df['ts'].max(), df['ts'].min(), ((df['ts'].max())-(df['ts'].min()))/3600.0)
-print(node_features.shape)
+print(a)
 
 '''
 a = [0, 1, 2]

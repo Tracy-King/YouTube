@@ -61,7 +61,7 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
 
 def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_size, n_neighbors, device):
   pred = torch.zeros((len(data.sources), node_dim)).to(device)
-  pred_prob_num = torch.zeros(((len(decoders), len(data.sources)))).to(device)
+  pred_prob_num = torch.zeros((len(decoders), len(data.sources))).to(device)
   num_instance = len(data.sources)
   num_batch = math.ceil(num_instance / batch_size)
 
@@ -129,10 +129,13 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
     pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
   #print(pred.device, next(decoder.parameters()).is_cuda, source_embedding.device)
   for d_idx in range(len(decoders)):
-    pred_prob = decoders[d_idx](pred).sigmoid()
-    pred_prob_num[d_idx] = torch.tensor([int(n+0.5) for n in pred_prob])
-  pred_prob_num = torch.sum(pred_prob_num, 0).detach().cpu().numpy()
-  pred_label = [1 if n >= (len(decoders) / 2) else 0 for n in pred_prob_num]
+    pred_prob = decoders[d_idx](pred)
+    pred_prob_num[d_idx] = torch.argmax(pred_prob, dim=1)
+  #print('pred_prob_num 1 ', pred_prob_num.shape)
+  pred_prob_num = torch.mean(pred_prob_num, 0).squeeze()
+  #print('pred_prob_num 2 ', pred_prob_num.shape)
+  pred_label = (pred_prob_num+0.5).trunc().detach().cpu().numpy()
+
 
   # pred_label = [1 if n>(n_decoder/2) else 0 for n in pred_prob_num]
   # print(set(pred_label))
@@ -144,7 +147,7 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
   #pred_label, pred_prob = decoder.test_(pred, target, len(data.sources))
 
 
-  print(set(pred_label))
+  #print(set(pred_label))
 
   acc = accuracy_score(data.labels, pred_label)
   pre = precision_score(data.labels, pred_label)
@@ -154,6 +157,7 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
   #print('confusion matrix', cm)
   #print(data.labels.shape, pred_prob.shape, pred_prob)
   auc_roc = roc_auc_score(data.labels, pred_label)
+  torch.cuda.empty_cache()
 
   return auc_roc, acc, pre, rec, cm
 
