@@ -50,7 +50,7 @@ parser.add_argument('--n_degree', type=int, default=20, help='Number of neighbor
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
+parser.add_argument('--lr', type=float, default=5e-3, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.1, help='Dropout probability')
@@ -273,6 +273,7 @@ for i in range(args.n_runs):
       labels_batch = train_data.labels[s_idx: e_idx]
 
       size = len(sources_batch)
+
 
       with torch.no_grad():
           source_embedding, destination_embedding = tgn.compute_temporal_embeddings(sources_batch,

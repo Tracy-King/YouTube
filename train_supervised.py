@@ -12,6 +12,7 @@ import torch
 import numpy as np
 import xgboost as xgb
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import average_precision_score, roc_auc_score, accuracy_score, precision_score, recall_score, confusion_matrix
 
 from model.tgn import TGN
 from model.softDT import DTArgs, SoftDecisionTree
@@ -44,16 +45,16 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
+parser.add_argument('--bs', type=int, default=2000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-1kxCz6tt2MU_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
-parser.add_argument('--n_layer', type=int, default=1, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=5e-4, help='Learning rate')
+parser.add_argument('--n_layer', type=int, default=2, help='Number of network layers')
+parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
-parser.add_argument('--drop_out', type=float, default=0.0, help='Dropout probability')
+parser.add_argument('--drop_out', type=float, default=0.2, help='Dropout probability')
 parser.add_argument('--gpu', type=int, default=0, help='Idx for the gpu to use')
 parser.add_argument('--node_dim', type=int, default=128, help='Dimensions of the node embedding')
 parser.add_argument('--time_dim', type=int, default=128, help='Dimensions of the time embedding')
@@ -124,7 +125,7 @@ NUM_EPOCH = args.n_epoch
 NUM_HEADS = args.n_head
 DROP_OUT = args.drop_out
 GPU = args.gpu
-UNIFORM = args.uniform
+UNIFORM = False#args.uniform
 NEW_NODE = args.new_node
 SEQ_LEN = NUM_NEIGHBORS
 DATA = args.data
@@ -265,11 +266,14 @@ for i in range(args.n_runs):
     #decoder = decoder.train()
     decoders = [decoder.train() for decoder in decoders]
     loss = 0
+    train_auc = 0
+    train_pre = 0
     optimizer.zero_grad()
     
     for k in range(num_batch):
       s_idx = k * BATCH_SIZE
       e_idx = min(num_instance, s_idx + BATCH_SIZE)
+
 
       sources_batch = train_data.sources[s_idx: e_idx]
       destinations_batch = train_data.destinations[s_idx: e_idx]
@@ -278,6 +282,7 @@ for i in range(args.n_runs):
       labels_batch = train_data.labels[s_idx: e_idx]
 
       size = len(sources_batch)
+      pred_prob_num = torch.zeros((N_DECODERS, size, 2)).to(device)
 
       with torch.no_grad():
           source_embedding, destination_embedding = tgn.compute_temporal_embeddings(sources_batch,
@@ -287,9 +292,9 @@ for i in range(args.n_runs):
                                                                                      NUM_NEIGHBORS)
 
       #labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
-      labels_batch_torch = torch.from_numpy(labels_batch)
       ones = torch.sparse.torch.eye(2)
-      labels_batch_onehot = ones.index_select(0, labels_batch_torch).float().to(device)
+      labels_batch_onehot = ones.index_select(0, torch.from_numpy(labels_batch)).to(device)
+      #labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
       '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
@@ -318,7 +323,7 @@ for i in range(args.n_runs):
           pos_count = np.count_nonzero(labels_batch)
           neg_count = size - pos_count
           pos_weight = neg_count / (pos_count + 1)
-          #print("pos_weight:{}, pos count:{}".format(pos_weight, pos_count))
+          #print("pos_weight:{}".format(pos_weight))
           '''
           # under sampling start
           index = list(range(size))
@@ -329,12 +334,12 @@ for i in range(args.n_runs):
           if len(sample_pos_index) == 0:
             continue
           sample_neg_index = random.sample([i for i in index if i not in sample_pos_index],
-                                         min(3*(len(sample_pos_index)+1), size-len(sample_pos_index)))
+                                         min((len(sample_pos_index)+1), size-len(sample_pos_index)))
           #sample_neg_index = random.sample([i for i in index if i not in sample_pos_index], (len(sample_pos_index) + 1))
           sample_pos_index.extend(sample_neg_index)
-          #random.shuffle(sample_pos_index)
+          random.shuffle(sample_pos_index)
           sample_index = sample_pos_index
-          # under sampling end
+          #under sampling end
           '''
           #train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
           #train_y = labels_batch[sample_index]
@@ -348,15 +353,21 @@ for i in range(args.n_runs):
           #  decoder.fit(train_x, train_y)   
           #elif DECODER=='XGB':
           #  decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
-          #decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
+          #decoder_loss = decoder_loss_criterion(pred, labels_batch_onehot)
           #decoder.fit(train_x, train_y)    # for GBDT
           #decoder_loss, pred = decoder.train_(source_embedding, labels_batch_torch, size)
           #print(decoder.evals_result())
           #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss'])
-          for decoder in decoders:
-            pred = decoder(source_embedding)
-            decoder_loss = decoder_loss_criterion(pred, labels_batch_onehot)
-            #decoder_loss += decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
+          for d_idx in range(N_DECODERS):
+            pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
+          pred = torch.mean(pred_prob_num, 0).squeeze()
+          pred_label = torch.argmax(pred, dim=1).detach().cpu().numpy()
+          if len(np.unique(labels_batch)) == 2:
+            train_auc = roc_auc_score(labels_batch, pred_label)
+            train_pre = precision_score(labels_batch, pred_label)
+          #print(pred.shape)
+          #pred = (pred_prob_num+0.5).trunc()
+          decoder_loss += decoder_loss_criterion(pred, labels_batch_onehot)
       else:
           sample_index = random.sample(list(range(size)), int(size/10))
           #print(len(sample_index))
@@ -376,11 +387,13 @@ for i in range(args.n_runs):
       decoder_loss.backward()
       optimizer.step()
       loss += decoder_loss / N_DECODERS
-      if (k%100==0):
+      torch.cuda.empty_cache()
+      if (k%1000==0):
         print(k, loss)
         #gpu_tracker.track()
     train_losses.append(loss.item())
     #gpu_tracker.track()
+    torch.cuda.empty_cache()
 
 
     val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoders, val_data, full_data.edge_idxs, NODE_DIM,
@@ -404,7 +417,7 @@ for i in range(args.n_runs):
       "new_nodes_val_aps": [],
     }, open(results_path, "wb"))
 
-    logger.info(f"Epoch {epoch}: train loss: {loss / num_batch}, val auc: {val_auc}, val acc: {val_acc}, "
+    logger.info(f"Epoch {epoch}: train loss: {loss / num_batch}, train auc{train_auc}, train pre{train_pre},  val auc: {val_auc}, val acc: {val_acc}, "
                 f"val rec: {val_rec}, val pre: {val_pre}, val cm: {val_cm}, time: {time.time() - start_epoch}")
   
   if args.use_validation:

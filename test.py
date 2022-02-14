@@ -19,11 +19,12 @@ print(torch.cuda.get_device_name(0))
 dataset_name = 'concat_full_v3.10'
 dataset_name2 = 'concat_week_v3.10'
 
-size = 5
-labels_batch_torch = torch.tensor([0, 1, 1, 0, 1])
-ones = torch.sparse.torch.eye(2)
-labels_batch_onehot = ones.index_select(0, labels_batch_torch)
-print(labels_batch_onehot)
+a = torch.tensor([0.1, 0.5, 0.6])
+
+a = (a+0.5).trunc()
+
+print(a)
+
 '''
 a = [0, 1, 2]
 

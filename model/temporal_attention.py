@@ -25,8 +25,7 @@ class TemporalAttentionLayer(torch.nn.Module):
     self.key_dim = n_neighbors_features + time_dim + n_edge_features
 
     self.merger = MergeLayer(self.query_dim, n_node_old_embedding, n_node_features, output_dimension)
-
-    self.gru = nn.GRU(self.query_dim, n_node_old_embedding, 1, batch_first=False)
+    self.gru = nn.GRU(self.query_dim, self.embed_dim, 1)
 
     self.multi_head_target = nn.MultiheadAttention(embed_dim=self.query_dim,
                                                    kdim=self.key_dim,
@@ -74,16 +73,16 @@ class TemporalAttentionLayer(torch.nn.Module):
 
     attn_output, attn_output_weights = self.multi_head_target(query=query, key=key, value=key,
                                                               key_padding_mask=neighbors_padding_mask)
+    #print(attn_output.shape, src_node_old_embedding_unrolled.shape)
+    attn_output, _ = self.gru(attn_output, src_node_old_embedding_unrolled)
 
     # mask = torch.unsqueeze(neighbors_padding_mask, dim=2)  # mask [B, N, 1]
     # mask = mask.permute([0, 2, 1])
     # attn_output, attn_output_weights = self.multi_head_target(q=query, k=key, v=key,
     #                                                           mask=mask)
-    #print(attn_output.shape, src_node_old_embedding_unrolled.shape)
-    attn_output, _ = self.gru(attn_output, src_node_old_embedding_unrolled)
+
     attn_output = attn_output.squeeze()
     attn_output_weights = attn_output_weights.squeeze()
-    #print('After:', attn_output.shape, attn_output_weights.shape)
 
     # Source nodes with no neighbors have an all zero attention output. The attention output is
     # then added or concatenated to the original source node features and then fed into an MLP.
@@ -93,7 +92,7 @@ class TemporalAttentionLayer(torch.nn.Module):
     #print(attn_output.shape)
 
     # Skip connection with temporal attention over neighborhood and the features of the node itself
-    #print('Final:', attn_output.shape, attn_output_weights.shape)
+    # attn_output = self.merger(attn_output, src_node_old_embedding)
 
     return attn_output, attn_output_weights
 
