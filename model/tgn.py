@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from collections import defaultdict
 
-from utils.utils import MergeLayer
+from utils.utils import MergeLayer, LSTMCell, GRUCell
 from modules.memory import Memory
 from modules.message_aggregator import get_message_aggregator
 from modules.message_function import get_message_function
@@ -22,7 +22,7 @@ class TGN(torch.nn.Module):
                message_function="mlp",
                mean_time_shift_src=0, std_time_shift_src=1, mean_time_shift_dst=0,
                std_time_shift_dst=1, n_neighbors=None, aggregator_type="last",
-               memory_updater_type="gru",
+               memory_updater_type="lstm",
                use_destination_embedding_in_message=False,
                use_source_embedding_in_message=False,
                dyrep=False, original_encoder=False):
@@ -33,6 +33,7 @@ class TGN(torch.nn.Module):
     self.device = device
     self.logger = logging.getLogger(__name__)
     self.data = data
+    self.updater_type = memory_updater_type
 
     self.update_records = update_records
     #print('update_records length:', len(update_records))
@@ -69,6 +70,11 @@ class TGN(torch.nn.Module):
     #print("type of self.edge_raw_feature", type(self.edge_raw_features))
     self.embedding_dict = dict()
     self.last_updated_dict = np.zeros(self.n_nodes)
+
+    if self.updater_type == 'lstm':
+      self.seq_model = LSTMCell(self.embedding_dimension, self.embedding_dimension).to(self.device)
+    elif self.updater_type == 'gru':
+      self.seq_model = GRUCell(self.embedding_dimension, self.embedding_dimension).to(self.device)
 
 
     self.memory = None
@@ -405,6 +411,139 @@ class TGN(torch.nn.Module):
 
     for i, ts in zip(nodes, timestamps):
       self.last_updated_dict[i] = ts
+
+    '''
+    if self.use_memory:
+      if self.memory_update_at_start:
+        # Persist the updates to the memory only for sources and destinations (since now we have
+        # new messages for them)
+        self.update_memory(positives, self.memory.messages)
+
+        assert torch.allclose(memory[positives], self.memory.get_memory(positives), atol=1e-5), \
+          "Something wrong in how the memory was updated"
+
+        # Remove messages for the positives since we have already updated the memory using them
+        self.memory.clear_messages(positives)
+      unique_sources, source_id_to_messages = self.get_raw_messages(source_nodes,
+                                                                    source_node_embedding,
+                                                                    destination_nodes,
+                                                                    destination_node_embedding,
+                                                                    edge_times, edge_idxs)
+
+
+      unique_destinations, destination_id_to_messages = self.get_raw_messages(destination_nodes,
+                                                                              destination_node_embedding,
+                                                                              source_nodes,
+                                                                              source_node_embedding,
+                                                                              edge_times, edge_idxs)
+      if self.memory_update_at_start:
+        self.memory.store_raw_messages(unique_sources, source_id_to_messages)
+        self.memory.store_raw_messages(unique_destinations, destination_id_to_messages)
+      else:
+        self.update_memory(unique_sources, source_id_to_messages)
+        self.update_memory(unique_destinations, destination_id_to_messages)
+
+      if self.dyrep:
+        source_node_embedding = memory[source_nodes]
+        destination_node_embedding = memory[destination_nodes]
+    '''
+
+    return source_node_embedding, destination_node_embedding
+
+
+  def compute_temporal_embeddings_seq(self, source_nodes, destination_nodes, edge_times,
+                                  edge_idxs, n_neighbors=20):
+    """
+    Compute temporal embeddings for sources, destinations, and negatively sampled destinations.
+
+    source_nodes [batch_size]: source ids.
+    :param destination_nodes [batch_size]: destination ids
+    :param negative_nodes [batch_size]: ids of negative sampled destination
+    :param edge_times [batch_size]: timestamp of interaction
+    :param edge_idxs [batch_size]: index of interaction
+    :param n_neighbors [scalar]: number of temporal neighbor to consider in each convolutional
+    layer
+    :return: Temporal embeddings for sources, destinations and negatives
+    """
+
+    if self.original_encoder:
+      return self.compute_temporal_embeddings_origin(source_nodes, destination_nodes, edge_times,
+                                                     edge_idxs, n_neighbors, use_memory=True)
+    n_samples = len(source_nodes)
+    nodes = np.concatenate([source_nodes, destination_nodes])
+    positives = np.concatenate([source_nodes, destination_nodes])
+    timestamps = np.concatenate([edge_times, edge_times])
+
+    memory = None
+    time_diffs = None
+    '''
+    if self.use_memory:
+      if self.memory_update_at_start:
+        # Update memory for all nodes with messages stored in previous batches
+        memory, last_update = self.get_updated_memory(list(range(self.n_nodes)),
+                                                      self.memory.messages)
+      else:
+        memory = self.memory.get_memory(list(range(self.n_nodes)))
+        last_update = self.memory.last_update
+    
+    ### Compute differences between the time the memory of a node was last updated,
+    ### and the time for which we want to compute the embedding of a node
+    source_time_diffs = torch.tensor(edge_times - self.last_updated_dict[
+      source_nodes]).to(self.device)
+    #source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
+    destination_time_diffs = torch.tensor(edge_times - self.last_updated_dict[
+      destination_nodes]).to(self.device)
+    #destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
+
+    time_diffs = torch.cat([source_time_diffs, destination_time_diffs], dim=0)
+    '''
+    start_idx = np.searchsorted(self.update_records_idx, edge_idxs[0])  # 第一个update record index
+    end_idx = np.searchsorted(self.update_records_idx, edge_idxs[-1], side='right') - 1  # 最后一个update record index
+
+    if start_idx <= end_idx:
+      if start_idx == end_idx:
+        updates_idx = [self.update_records_idx[start_idx]]
+      else:
+        updates_idx = self.update_records_idx[start_idx: end_idx]  # edge index
+      update_nodes_idx = [int(np.searchsorted(edge_idxs, i)) for i in updates_idx]  # edge对应的node list内的index
+      n_updates = len(updates_idx)
+
+      if n_updates != 0:
+        for i in range(n_updates):
+          update_node = source_nodes[update_nodes_idx[i]]
+          input = torch.from_numpy(self.node_raw_features[update_node, :].astype(np.float32)).to(self.device)
+          hid = torch.tensor(self.update_records[str(updates_idx[i])]).to(self.device)
+          #print(input.shape, hid.shape)
+          cur_node_embedding = self.seq_model(input, hid)
+          #print(cur_node_embedding.shape)
+          self.node_raw_features[update_node] = cur_node_embedding.cpu().detach().numpy()
+      # print(len(source_node_features))
+
+    source_node_embedding = torch.from_numpy(self.node_raw_features[source_nodes, :].astype(np.float32)).to(self.device)
+    destination_node_embedding = torch.from_numpy(self.node_raw_features[destination_nodes, :].astype(np.float32)).to(self.device)
+
+    # print(type(source_node_features), type(destination_node_features), type(negative_node_features))
+    # node_features = np.vstack([source_node_features, destination_node_features])
+    # node_features = torch.from_numpy(node_features.astype(np.float32)).to(self.device)
+    # source_node_features = torch.from_numpy(source_node_features.astype(np.float32)).to(self.device)
+    # destination_node_features = torch.from_numpy(destination_node_features.astype(np.float32)).to(self.device)
+    # negative_node_features = torch.from_numpy(negative_node_features.astype(np.float32)).to(self.device)
+
+    # assert (node_features.shape[0] == 2 * n_samples), 'node_features dimension 0 error'
+    # assert (node_features.shape[1] == self.n_node_features), 'node_features dimension 1 error'
+
+    # self.embedding_module.update_node_features(updated_node_raw_features=self.node_raw_features)
+    # print(type(node_features))
+    # Compute the embeddings using the embedding module
+    '''
+    node_embedding = self.embedding_module.compute_embeddingv2(source_node_raw_features=node_features,
+                                                               source_nodes=nodes,
+                                                               timestamps=timestamps,
+                                                               n_layers=self.n_layers,
+                                                               n_neighbors=n_neighbors,
+                                                               time_diffs=time_diffs)
+
+    '''
 
     '''
     if self.use_memory:
