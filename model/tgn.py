@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from collections import defaultdict
 
-from utils.utils import MergeLayer, LSTMCell, GRUCell
+from utils.utils import MergeLayer, LSTMCell, GRUCell, RNNCell
 from modules.memory import Memory
 from modules.message_aggregator import get_message_aggregator
 from modules.message_function import get_message_function
@@ -75,6 +75,8 @@ class TGN(torch.nn.Module):
       self.seq_model = LSTMCell(self.embedding_dimension, self.embedding_dimension).to(self.device)
     elif self.updater_type == 'gru':
       self.seq_model = GRUCell(self.embedding_dimension, self.embedding_dimension).to(self.device)
+    elif self.updater_type == 'rnn':
+      self.seq_model = RNNCell(self.embedding_dimension, self.embedding_dimension).to(self.device)
 
 
     self.memory = None

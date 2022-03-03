@@ -42,13 +42,28 @@ print('b3:{}'.format(b))
 b = np.cos(b)
 
 print('b4:{}'.format(b))
+'''
 
 video_id = '97DWg8tqo4M'
-new_data = pd.read_pickle('dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
-test = new_data
+old_data = pd.read_csv('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}.csv'.format(video_id))
+new_data = old_data.copy(deep=False)
+new_data = new_data[0:0]
+for idx, line in old_data.iterrows():
+  #print(idx, line)
+  if int(line['superchat']) > 0:
+      for i in range(5):
+          new_data = pd.concat([new_data, line], ignore_index=True)
+  else:
+      new_data = pd.concat([new_data, line], ignore_index=True)
+
+print('old:', old_data.info())
+print('new:', new_data.info())
+
+new_data.to_csv('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}_aug.csv'.format(video_id))
+
 #end_time = new_data['Offset'].values[-1]
 #print(end_time, type(end_time))
-
+'''
 for (i, j), k in zip(new_data[10:20].iterrows(), range(10)):
   print(i, j, k)
 
