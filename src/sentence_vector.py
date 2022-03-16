@@ -189,9 +189,10 @@ def main(root, channel_id, video_id):
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
     channel_id = 'UC1opHUrw8rvnsadT-iGp7Cg'
-    #video_id = '97DWg8tqo4M'
-    #root = '../channels/{}/{}.csv'.format(channel_id, video_id)
-
+    video_id = '97DWg8tqo4M_aug'
+    root = '../channels/{}/{}.csv'.format(channel_id, video_id)
+    main(root, channel_id, video_id)
+    '''
     g = os.walk(r"..\channels")
     for path, dir_list, file_list in g:
         channel_id = path[12:]
@@ -201,7 +202,7 @@ if __name__ == '__main__':
             #print(video_id)
             print(os.path.join(path, file_name))
             main(os.path.join(path, file_name), channel_id, video_id)
-
+    '''
 
 
     #main(root, channel_id, video_id)

@@ -32,7 +32,7 @@ torch.manual_seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='1kxCz6tt2MU_v3.10')
+                    default='97DWg8tqo4M_aug_v3.10')
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
                     default=30)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
@@ -324,7 +324,7 @@ for i in range(args.n_runs):
           neg_count = size - pos_count
           pos_weight = neg_count / (pos_count + 1)
           #print("pos_weight:{}".format(pos_weight))
-          '''
+
           # under sampling start
           index = list(range(size))
           sample_pos_index = []
@@ -340,7 +340,7 @@ for i in range(args.n_runs):
           random.shuffle(sample_pos_index)
           sample_index = sample_pos_index
           #under sampling end
-          '''
+
           #train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
           #train_y = labels_batch[sample_index]
           #train_x = source_embedding.clone().detach().cpu().numpy()
@@ -348,7 +348,7 @@ for i in range(args.n_runs):
           #print(len(sample_index))
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
-          decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
+          # decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
           #if DECODER=='GBDT':
           #  decoder.fit(train_x, train_y)   
           #elif DECODER=='XGB':
@@ -367,7 +367,7 @@ for i in range(args.n_runs):
             train_pre = precision_score(labels_batch, pred_label)
           #print(pred.shape)
           #pred = (pred_prob_num+0.5).trunc()
-          decoder_loss += decoder_loss_criterion(pred, labels_batch_onehot)
+          decoder_loss += decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
       else:
           sample_index = random.sample(list(range(size)), int(size/10))
           #print(len(sample_index))

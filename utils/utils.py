@@ -43,6 +43,41 @@ class MLP(torch.nn.Module):
     return torch.nn.functional.softmax(x, dim=1)
 
 
+class LSTMCell(torch.nn.Module):
+  def __init__(self, dim, hid):
+    super().__init__()
+    self.lstmcell = torch.nn.LSTMCell(dim, hid)  #  tensor of shape (seq length, batch size, input size) when batch_first=False
+
+  def forward(self, x, h):
+    x = torch.unsqueeze(x, dim=0)
+    h = torch.unsqueeze(h, dim=0)
+    hx, _ = self.lstmcell(x, (h, h))
+    return hx
+
+
+class GRUCell(torch.nn.Module):
+  def __init__(self, dim, hid, drop=0.3):
+    super().__init__()
+    self.grucell = torch.nn.GRUCell(dim, hid)  #  tensor of shape (seq length, batch size, input size) when batch_first=False
+
+  def forward(self, x, h):
+    x = torch.unsqueeze(x, dim=0)
+    h = torch.unsqueeze(h, dim=0)
+    hx = self.grucell(x, h)
+    return torch.squeeze(hx)
+
+class RNNCell(torch.nn.Module):
+  def __init__(self, dim, hid, drop=0.3):
+    super().__init__()
+    self.grucell = torch.nn.RNNCell(dim, hid)  #  tensor of shape (seq length, batch size, input size) when batch_first=False
+
+  def forward(self, x, h):
+    x = torch.unsqueeze(x, dim=0)
+    h = torch.unsqueeze(h, dim=0)
+    hx = self.grucell(x, h)
+    return torch.squeeze(hx)
+
+
 class EarlyStopMonitor(object):
   def __init__(self, max_round=3, higher_better=True, tolerance=1e-10):
     self.max_round = max_round

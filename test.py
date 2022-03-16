@@ -22,10 +22,13 @@ dataset_name2 = 'concat_week_v3.10'
 a = torch.tensor([0.1, 0.5, 0.6])
 
 a = (a+0.5).trunc()
-
-print(a)
-
 '''
+print(a)
+npy = np.load('embedding/UC1opHUrw8rvnsadT-iGp7Cg/97DWg8tqo4M_aug.npy')
+data = pd.read_csv('embedding/UC1opHUrw8rvnsadT-iGp7Cg/97DWg8tqo4M_aug.csv')
+print(data.shape)
+print(npy.shape)
+
 a = [0, 1, 2]
 
 print(np.tile(a, (2, 1)))
@@ -43,9 +46,43 @@ b = np.cos(b)
 
 print('b4:{}'.format(b))
 
-video_id = '97DWg8tqo4M'
-new_data = pd.read_pickle('dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
-test = new_data
+'''
+
+
+concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0', '1kxCz6tt2MU']
+
+for video_id in concat_list:
+    #video_id = i #'97DWg8tqo4M'
+    print('Video {} augmentation start'.format(video_id))
+    old_data = pd.read_csv('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}.csv'.format(video_id))
+    old_emb = np.load('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}.npy'.format(video_id))
+    new_data = old_data.copy(deep=True)
+    new_data = new_data[0:0]
+    new_emb = np.zeros((1, old_emb.shape[1]))
+    #print(new_data)
+    for idx, line in old_data.iterrows():
+        if idx%1000 == 0:
+            print(idx)
+    #print(idx, line)
+        if int(line['superchat']) > 0:
+            for i in range(5):
+                new_data = new_data.append(line, ignore_index=True)# = pd.concat([new_data, line], ignore_index=True)
+                new_emb = np.append(new_emb, np.expand_dims(old_emb[idx], axis=0), axis=0)
+        else:
+            new_data = new_data.append(line, ignore_index=True)#new_data = pd.concat([new_data, line], ignore_index=True)
+            new_emb = np.append(new_emb, np.expand_dims(old_emb[idx], axis=0), axis=0)
+
+    new_data = new_data.drop(columns=['Unnamed: 0'])
+    print('old:', old_data.info())
+    print('new:', new_data.info(), new_emb.shape)
+
+
+    new_data.to_csv('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}_aug.csv'.format(video_id))
+    np.save('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}_aug.npy'.format(video_id), new_emb)
+    print('Video {} augmentation finished'.format(video_id))
+
+
+'''
 #end_time = new_data['Offset'].values[-1]
 #print(end_time, type(end_time))
 
@@ -67,8 +104,8 @@ delete_list = [2, 3, 5]
 print(history_list)
 history_list = [history_list[idx] for idx in range(len(history_list)) if idx not in delete_list]
 print(history_list)
-'''
-'''
+
+
 
 dataset_name = 'concat_v2'
 graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
