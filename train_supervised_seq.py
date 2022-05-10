@@ -69,7 +69,7 @@ parser.add_argument('--message_function', type=str, default="identity", choices=
     "mlp", "identity"], help='Type of message function')
 parser.add_argument('--aggregator', type=str, default="mean", help='Type of message '
                                                                    'aggregator')
-parser.add_argument('--updater_type', type=str, default="rnn", choices=[
+parser.add_argument('--updater_type', type=str, default="lstm", choices=[
     "lstm", "gru", "rnn"],help='Type of updater')
 parser.add_argument('--memory_update_at_end', action='store_true',
                     help='Whether to update memory at the end or at the start of the batch')

@@ -8,6 +8,8 @@ import re
 import difflib
 from torch.autograd import Variable
 import datetime
+import pandas as pd
+
 
 pd.set_option('display.max_columns', None)
 
@@ -46,7 +48,7 @@ b = np.cos(b)
 
 print('b4:{}'.format(b))
 
-'''
+
 
 
 concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0', '1kxCz6tt2MU']
@@ -65,7 +67,7 @@ for video_id in concat_list:
             print(idx)
     #print(idx, line)
         if int(line['superchat']) > 0:
-            for i in range(5):
+            for i in range(10):
                 new_data = new_data.append(line, ignore_index=True)# = pd.concat([new_data, line], ignore_index=True)
                 new_emb = np.append(new_emb, np.expand_dims(old_emb[idx], axis=0), axis=0)
         else:
@@ -77,12 +79,12 @@ for video_id in concat_list:
     print('new:', new_data.info(), new_emb.shape)
 
 
-    new_data.to_csv('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}_aug.csv'.format(video_id))
-    np.save('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}_aug.npy'.format(video_id), new_emb)
+    new_data.to_csv('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}_aug_10.csv'.format(video_id))
+    np.save('embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}_aug_10.npy'.format(video_id), new_emb)
     print('Video {} augmentation finished'.format(video_id))
 
 
-'''
+
 #end_time = new_data['Offset'].values[-1]
 #print(end_time, type(end_time))
 
@@ -105,15 +107,16 @@ print(history_list)
 history_list = [history_list[idx] for idx in range(len(history_list)) if idx not in delete_list]
 print(history_list)
 
+'''
 
-
-dataset_name = 'concat_v2'
+dataset_name = 'concat_mid_aug_10_v3.10'
 graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
+print(graph_df.info())
 print(graph_df['superchat'].value_counts())
 print(graph_df['membership'].value_counts())
 
 
-
+'''
 print(0>=0.0)
 tst = 'なるはや待機� aqua ❤ エペかな、モンハンかな、🥳'
 a = '許されたｗ'

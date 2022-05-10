@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from collections import defaultdict
 
-from utils.utils import MergeLayer, LSTMCell, GRUCell, RNNCell
+from utils.utils import MergeLayer, LSTMFCN, GRUCell, RNNCell
 from modules.memory import Memory
 from modules.message_aggregator import get_message_aggregator
 from modules.message_function import get_message_function
@@ -72,7 +72,7 @@ class TGN(torch.nn.Module):
     self.last_updated_dict = np.zeros(self.n_nodes)
 
     if self.updater_type == 'lstm':
-      self.seq_model = LSTMCell(self.embedding_dimension, self.embedding_dimension).to(self.device)
+      self.seq_model = LSTMFCN(self.embedding_dimension*2).to(self.device)
     elif self.updater_type == 'gru':
       self.seq_model = GRUCell(self.embedding_dimension, self.embedding_dimension).to(self.device)
     elif self.updater_type == 'rnn':
@@ -516,7 +516,9 @@ class TGN(torch.nn.Module):
           input = torch.from_numpy(self.node_raw_features[update_node, :].astype(np.float32)).to(self.device)
           hid = torch.tensor(self.update_records[str(updates_idx[i])]).to(self.device)
           #print(input.shape, hid.shape)
-          cur_node_embedding = self.seq_model(input, hid)
+          input = torch.cat((input, hid), dim=0).unsqueeze(0)
+          #print(input.shape)
+          cur_node_embedding = self.seq_model(input).squeeze(2)
           #print(cur_node_embedding.shape)
           self.node_raw_features[update_node] = cur_node_embedding.cpu().detach().numpy()
       # print(len(source_node_features))

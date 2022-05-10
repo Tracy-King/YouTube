@@ -17,6 +17,83 @@ class MergeLayer(torch.nn.Module):
     h = self.act(self.fc1(x))
     return self.fc2(h)
 
+class BlockLSTM(torch.nn.Module):
+    def __init__(self, time_steps, num_variables, lstm_hs=64, dropout=0.8, attention=False):
+      super().__init__()
+      self.lstm = torch.nn.LSTM(input_size=time_steps, hidden_size=lstm_hs, num_layers=num_variables)
+      self.dropout = torch.nn.Dropout(p=dropout)
+
+    def forward(self, x):
+      # input is of the form (batch_size, num_variables, time_steps), e.g. (128, 1, 512)
+      x = torch.transpose(x, 0, 1)
+      # lstm layer is of the form (num_variables, batch_size, time_steps)
+      x, _ = self.lstm(x)
+      #print('LSTM', x.shape)
+      # dropout layer input shape:
+      y = self.dropout(x)
+      y = torch.transpose(y, 1, 2)
+      # output shape is of the form ()
+      return y
+
+
+class BlockFCNConv(torch.nn.Module):
+    def __init__(self, in_channel=1, out_channel=64, kernel_size=8, momentum=0.99, epsilon=0.001, squeeze=False):
+      super().__init__()
+      self.conv = torch.nn.Conv1d(in_channel, out_channel, kernel_size=kernel_size)
+      self.batch_norm = torch.nn.BatchNorm1d(num_features=out_channel, eps=epsilon, momentum=momentum)
+      self.relu = torch.nn.ReLU()
+
+    def forward(self, x):
+      # input (batch_size, num_variables, time_steps), e.g. (128, 1, 512)
+      #print("BlockFCN", x.shape)
+      x = self.conv(x)
+      # input (batch_size, out_channel, L_out)
+      x = self.batch_norm(x)
+      # same shape as input
+      y = self.relu(x)
+      return y
+
+
+class BlockFCN(torch.nn.Module):
+  def __init__(self, time_steps, channels=[1, 64, 128, 64], kernels=[5, 3, 2], mom=0.99, eps=0.001):
+    super().__init__()
+    self.conv1 = BlockFCNConv(channels[0], channels[1], kernels[0], momentum=mom, epsilon=eps, squeeze=True)
+    self.conv2 = BlockFCNConv(channels[1], channels[2], kernels[1], momentum=mom, epsilon=eps, squeeze=True)
+    self.conv3 = BlockFCNConv(channels[2], channels[3], kernels[2], momentum=mom, epsilon=eps)
+    output_size = time_steps - sum(kernels) + len(kernels)
+    self.global_pooling = torch.nn.AvgPool1d(kernel_size=output_size)
+
+  def forward(self, x):
+    x = self.conv1(x)
+    x = self.conv2(x)
+    x = self.conv3(x)
+    # apply Global Average Pooling 1D
+    y = self.global_pooling(x)
+    return y
+
+
+class LSTMFCN(torch.nn.Module):
+    def __init__(self, dim, num_variables=1):
+      super().__init__()
+      self.lstm_block = BlockLSTM(dim, num_variables)
+      self.fcn_block = BlockFCN(dim)
+      self.softmax = torch.nn.Softmax(dim=1)
+
+    def forward(self, x):
+      # input is (batch_size, time_steps), it has to be (batch_size, 1, time_steps)
+      x = x.unsqueeze(1)
+      # pass input through LSTM block
+      x1 = self.lstm_block(x)
+      # pass input through FCN block
+      x2 = self.fcn_block(x)
+      print('LSTMFCN', x1.shape, x2.shape)
+      # concatenate blocks output
+      x = torch.cat([x1, x2], 1)
+      # pass through Softmax activation
+      y = self.softmax(x)
+
+      return y
+
 
 class MLP(torch.nn.Module):
   def __init__(self, dim, drop=0.3):
