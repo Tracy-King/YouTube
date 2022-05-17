@@ -33,9 +33,9 @@ torch.manual_seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='1kxCz6tt2MU_v3.10')
+                    default='1kxCz6tt2MU_v3.10')   # 1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=30)
+                    default=2)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
@@ -46,7 +46,7 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=2000, help='Batch_size')
+parser.add_argument('--bs', type=int, default=200, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='tgn-attn-1kxCz6tt2MU_v2', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
@@ -281,16 +281,17 @@ for i in range(args.n_runs):
             size = len(sources_batch)
             pred_prob_num = torch.zeros((N_DECODERS, size, 2)).to(device)
 
-            with torch.no_grad():
-                source_embedding, destination_embedding = tgn.compute_temporal_embeddings_seq(sources_batch,
+
+            source_embedding, destination_embedding = tgn.compute_temporal_embeddings_seq(sources_batch,
                                                                                           destinations_batch,
                                                                                           timestamps_batch,
                                                                                           edge_idxs_batch,
                                                                                           NUM_NEIGHBORS)
 
             # labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
-            ones = torch.sparse.torch.eye(2)
-            labels_batch_onehot = ones.index_select(0, torch.from_numpy(labels_batch)).to(device)
+            with torch.no_grad():
+              ones = torch.sparse.torch.eye(2)
+              labels_batch_onehot = ones.index_select(0, torch.from_numpy(labels_batch)).to(device)
             # labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
             '''
             weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)

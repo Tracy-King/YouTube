@@ -72,7 +72,7 @@ class TGN(torch.nn.Module):
     self.last_updated_dict = np.zeros(self.n_nodes)
 
     if self.updater_type == 'lstm':
-      self.seq_model = LSTMFCN(self.embedding_dimension*2).to(self.device)
+      self.seq_model = LSTMFCN(self.embedding_dimension*2, attn=False).to(self.device)
     elif self.updater_type == 'gru':
       self.seq_model = GRUCell(self.embedding_dimension, self.embedding_dimension).to(self.device)
     elif self.updater_type == 'rnn':

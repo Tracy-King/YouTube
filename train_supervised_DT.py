@@ -274,15 +274,15 @@ for i in range(args.n_runs):
 
       size = len(sources_batch)
 
-      with torch.no_grad():
-          source_embedding, destination_embedding = tgn.compute_temporal_embeddings(sources_batch,
+
+      source_embedding, destination_embedding = tgn.compute_temporal_embeddings(sources_batch,
                                                                                      destinations_batch,
                                                                                      timestamps_batch,
                                                                                      edge_idxs_batch,
                                                                                      NUM_NEIGHBORS)
-
-      #labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
-      labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+      with torch.no_grad():
+        #labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
+        labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
       '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)

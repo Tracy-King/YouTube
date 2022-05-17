@@ -17,21 +17,43 @@ class MergeLayer(torch.nn.Module):
     h = self.act(self.fc1(x))
     return self.fc2(h)
 
+
 class BlockLSTM(torch.nn.Module):
     def __init__(self, time_steps, num_variables, lstm_hs=64, dropout=0.8, attention=False):
       super().__init__()
       self.lstm = torch.nn.LSTM(input_size=time_steps, hidden_size=lstm_hs, num_layers=num_variables)
       self.dropout = torch.nn.Dropout(p=dropout)
+      self.attn = attention
+
+    def attention_net(self, lstm_output, final_state):
+      # lstm_output : [batch_size, n_step, n_hidden * num_directions(=2)], F matrix
+      # final_state : [num_layers(=1) * num_directions(=2), batch_size, n_hidden]
+
+      batch_size = len(lstm_output)
+      # hidden = final_state.view(batch_size,-1,1)
+      hidden = final_state[0].unsqueeze(2)
+      # hidden : [batch_size, n_hidden * num_directions(=2), n_layer(=1)]
+      attn_weights = torch.bmm(lstm_output, hidden).squeeze(2)
+      # attn_weights : [batch_size,n_step]
+      soft_attn_weights = torch.nn.functional.softmax(attn_weights, 1)
+
+      # context: [batch_size, n_hidden * num_directions(=2)]
+      context = torch.bmm(lstm_output.transpose(1, 2), soft_attn_weights.unsqueeze(2))
+
+      return context, soft_attn_weights
 
     def forward(self, x):
       # input is of the form (batch_size, num_variables, time_steps), e.g. (128, 1, 512)
       x = torch.transpose(x, 0, 1)
       # lstm layer is of the form (num_variables, batch_size, time_steps)
-      x, _ = self.lstm(x)
+      output, (final_hidden_state, final_cell_state) = self.lstm(x)
+      y = torch.transpose(output, 1, 2)
       #print('LSTM', x.shape)
+      if self.attn:
+        y, _ = self.attention_net(output, final_hidden_state)
       # dropout layer input shape:
-      y = self.dropout(x)
-      y = torch.transpose(y, 1, 2)
+      y = self.dropout(y)
+      #print(y.shape)
       # output shape is of the form ()
       return y
 
@@ -73,9 +95,9 @@ class BlockFCN(torch.nn.Module):
 
 
 class LSTMFCN(torch.nn.Module):
-    def __init__(self, dim, num_variables=1):
+    def __init__(self, dim, num_variables=1, attn=False):
       super().__init__()
-      self.lstm_block = BlockLSTM(dim, num_variables)
+      self.lstm_block = BlockLSTM(dim, num_variables, attention=attn)
       self.fcn_block = BlockFCN(dim)
       self.softmax = torch.nn.Softmax(dim=1)
 
@@ -86,7 +108,7 @@ class LSTMFCN(torch.nn.Module):
       x1 = self.lstm_block(x)
       # pass input through FCN block
       x2 = self.fcn_block(x)
-      print('LSTMFCN', x1.shape, x2.shape)
+      #print('LSTMFCN', x1.shape, x2.shape)
       # concatenate blocks output
       x = torch.cat([x1, x2], 1)
       # pass through Softmax activation
