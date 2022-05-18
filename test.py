@@ -109,11 +109,11 @@ print(history_list)
 
 '''
 
-dataset_name = 'concat_mid_aug_10_v3.10'
-graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
+dataset_name = '1kxCz6tt2MU_v3.10_dynamic_graph'
+graph_df = pd.read_pickle('./dynamicGraph/{}.pkl'.format(dataset_name))
+#graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
 print(graph_df.info())
-print(graph_df['superchat'].value_counts())
-print(graph_df['membership'].value_counts())
+print(graph_df[:10])
 
 
 '''
