@@ -9,6 +9,7 @@ import difflib
 from torch.autograd import Variable
 import datetime
 import pandas as pd
+from collections import Counter
 
 
 pd.set_option('display.max_columns', None)
@@ -18,12 +19,30 @@ print(torch.cuda.is_available())
 print(torch.cuda.device_count())
 print(torch.cuda.get_device_name(0))
 
-dataset_name = 'concat_full_v3.10'
-dataset_name2 = 'concat_week_v3.10'
+dataset_name = '1kxCz6tt2MU'
+graph_df = pd.read_csv('./embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}.csv'.format(dataset_name))
+#graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
+#print(graph_df.info())
 
-a = torch.tensor([0.1, 0.5, 0.6])
+with open('val.pkl', 'rb') as file:
+    val_data = pickle.loads(file.read())
+pred_labels = np.load('pred_label.npy')
 
-a = (a+0.5).trunc()
+print(val_data.timestamps)
+print(val_data.labels)
+
+superchats = graph_df[(graph_df['superchat']>0) & (graph_df['offset']>=val_data.timestamps[0])]
+print(superchats.info(), superchats)
+
+
+pos_idx = np.nonzero(val_data.labels)
+pos_id = val_data.destinations[pos_idx]
+pos_edge_id = val_data.edge_idxs[pos_idx]
+
+print('pos_edge_id:', val_data.edge_idxs[pos_idx])
+print('counter pos_id:', Counter(pos_id))
+
+
 '''
 print(a)
 npy = np.load('embedding/UC1opHUrw8rvnsadT-iGp7Cg/97DWg8tqo4M_aug.npy')
@@ -108,14 +127,14 @@ history_list = [history_list[idx] for idx in range(len(history_list)) if idx not
 print(history_list)
 
 '''
-
+'''
 dataset_name = '1kxCz6tt2MU_v3.10_dynamic_graph'
 graph_df = pd.read_pickle('./dynamicGraph/{}.pkl'.format(dataset_name))
 #graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
 print(graph_df.info())
 print(graph_df[:10])
 
-
+'''
 '''
 print(0>=0.0)
 tst = 'なるはや待機� aqua ❤ エペかな、モンハンかな、🥳'
