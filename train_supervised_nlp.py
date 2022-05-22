@@ -175,10 +175,10 @@ device = torch.device(device_string)
 single = ['1kxCz6tt2MU']
 concat_week = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ']#, 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
 concat_half = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
-model_path = 'BERT-base_mecab-ipadic-bpe-32k' # 'bert-base-cased' #'BERT-base_mecab-ipadic-bpe-32k'
+model_path = 'cl-tohoku/bert-base-japanese'# 'bert-base-cased' #'BERT-base_mecab-ipadic-bpe-32k'
 max_length = 32
 data_list = concat_week
-ratio = 0.7
+ratio = 0.9
 
 flag = 0
 node_dict = dict()
@@ -239,10 +239,29 @@ def flat_evaluation(preds, labels):
         auc = 0.0
     else:
         auc = roc_auc_score(labels_flat, pred_flat)
+        cm = confusion_matrix(labels_flat, pred_flat)
+        print(cm)
     return acc, auc#, confusion_matrix(labels_flat, pred_flat)
 
 all_input_ids = encode_fn(body)
-print('labels:', np.count_nonzero(labels), 'positive in ', len(labels))
+print('labels:', np.count_nonzero(labels), 'positive in ', n_nodes)
+
+pos_idx = np.where(labels==1)[0]
+#pos_idx = np.tile(pos_idx, int(len(labels)/np.count_nonzero(labels)))
+neg_idx = np.where(labels==0)[0]
+#node_idx = np.hstack((np.arange(n_nodes), pos_idx))
+#labels = labels[node_idx]
+
+train_size = int(ratio * n_nodes)
+pos_split = np.split(pos_idx, [int(ratio*len(pos_idx)), n_nodes])
+neg_split = np.split(neg_idx, [int(ratio*len(neg_idx)), n_nodes])
+print(pos_split[0].shape, pos_split[1].shape, neg_split[0].shape, neg_split[1].shape)
+train_node_idx = np.hstack((neg_split[0], np.tile(pos_split[0], int(n_nodes/len(pos_idx)))))
+val_node_idx = np.hstack((neg_split[1], np.tile(pos_split[1], int(n_nodes/len(pos_idx)))))
+
+print(pos_idx.shape, neg_idx.shape, np.count_nonzero(labels[train_node_idx]), np.count_nonzero(labels[val_node_idx]))
+
+
 ones = torch.sparse.torch.eye(2)
 labels = ones.index_select(0, torch.from_numpy(labels)).to(device)
 
@@ -252,14 +271,13 @@ epochs = NUM_EPOCH
 batch_size = BATCH_SIZE
 
 # Split data into train and validation
-dataset = TensorDataset(all_input_ids, labels)
-train_size = int(ratio * len(dataset))
-val_size = len(dataset) - train_size
-train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
+train_dataset = TensorDataset(torch.from_numpy(train_node_idx), labels[train_node_idx])
+val_dataset = TensorDataset(torch.from_numpy(val_node_idx), labels[val_node_idx])
 
 # Create train and validation dataloaders
 train_dataloader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True)
-val_dataloader = DataLoader(val_dataset, batch_size = batch_size, shuffle = False)
+val_dataloader = DataLoader(val_dataset, batch_size = batch_size, shuffle = True)
 
 # Load the pretrained BERT model
 
@@ -279,7 +297,8 @@ for epoch in range(epochs):
     total_eval_auc = 0
     for step, batch in enumerate(train_dataloader):
         model.zero_grad()
-        loss, logits = model(batch[0].to(device), token_type_ids=None, attention_mask=(batch[0] > 0).to(device),
+        loss, logits = model(all_input_ids[batch[0]].to(device), token_type_ids=None,
+                             attention_mask=(all_input_ids[batch[0]] > 0).to(device),
                              labels=batch[1].to(device), return_dict=False)
         total_loss += loss.item()
         loss.backward()
@@ -293,7 +312,8 @@ for epoch in range(epochs):
 
     for i, batch in enumerate(val_dataloader):
         with torch.no_grad():
-            loss, logits = model(batch[0].to(device), token_type_ids=None, attention_mask=(batch[0] > 0).to(device),
+            loss, logits = model(all_input_ids[batch[0]].to(device), token_type_ids=None,
+                                 attention_mask=(all_input_ids[batch[0]] > 0).to(device),
                                  labels=batch[1].to(device), return_dict=False)
 
             total_val_loss += loss.item()
@@ -310,7 +330,7 @@ for epoch in range(epochs):
                 y_pred = np.vstack((y_pred, logits))
                 y_true = np.vstack((y_true, label_ids))
 
-    avg_val_accuracy, avg_val_auc = flat_evaluation(logits, label_ids)
+    avg_val_accuracy, avg_val_auc = flat_evaluation(y_pred, y_true)
     avg_train_loss = total_loss / len(train_dataloader)
     avg_val_loss = total_val_loss / len(val_dataloader)
 
