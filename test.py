@@ -19,8 +19,42 @@ print(torch.cuda.is_available())
 print(torch.cuda.device_count())
 print(torch.cuda.get_device_name(0))
 
-dataset_name = '1kxCz6tt2MU'
-graph_df = pd.read_csv('./embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}.csv'.format(dataset_name))
+concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA',
+               'qHZwDxea7fQ']  # , 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
+#                ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+# concat_list = ['fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+
+# concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ']#, 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
+#                ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+# concat_list = ['fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
+'''
+data = 0  # pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
+cnt = 1
+end_time = 0  # data['Offset'].iat[-1].to_numpy()
+for id in concat_list:
+    new_data = pd.read_csv('./embedding/UC1opHUrw8rvnsadT-iGp7Cg/{}.csv'.format(id))
+    if cnt == 1:
+        print('first:{}-{}'.format(cnt, id))
+        cnt += 1
+        data = new_data
+        end_time = data['offset'].iat[-1]
+        # print(new_data['Offset'].to_numpy()[:10])
+    else:
+        print('next:{}-{}'.format(cnt, id))
+        cnt += 1
+        new_data['offset'] = new_data['offset'].add(end_time + 3600)
+        # print(new_data['Offset'].to_numpy()[:10])
+        data = data.append(new_data, ignore_index=True)
+        end_time = data['offset'].iat[-1]
+        # print(end_time)
+
+print(data.info())
+data.to_csv('./concat_week_v3.10_tmp3.csv')
+'''
+
+dataset_name = 'concat_week_v3.10_tmp3'
+graph_df = pd.read_csv('./{}.csv'.format(dataset_name))
+#print(graph_df.info())
 #graph_df = pd.read_csv('./dynamicGraph/ml_{}.csv'.format(dataset_name))
 #print(graph_df.info())
 
@@ -28,19 +62,42 @@ with open('val.pkl', 'rb') as file:
     val_data = pickle.loads(file.read())
 pred_labels = np.load('pred_label.npy')
 
-print(val_data.timestamps)
-print(val_data.labels)
 
 superchats = graph_df[(graph_df['superchat']>0) & (graph_df['offset']>=val_data.timestamps[0])]
-print(superchats.info(), superchats)
+#print(superchats.info(), superchats)
+#superchats.to_csv('./{}-superchats.csv'.format(dataset_name))
 
 
+#pos_idx = np.nonzero(np.logical_and(pred_labels, val_data.labels))
 pos_idx = np.nonzero(val_data.labels)
-pos_id = val_data.destinations[pos_idx]
+pos_id = []
+for idx in pos_idx[0]:
+    if val_data.sources[idx] == val_data.destinations[idx]:
+        pos_id.append(val_data.sources[idx])
+        #print(val_data.sources[idx], val_data.destinations[idx], val_data.edge_idxs[idx], val_data.labels[idx],
+        #      pred_labels[idx], val_data.timestamps[idx])
+pos_id = np.array(pos_id)  # superchat node id
 pos_edge_id = val_data.edge_idxs[pos_idx]
 
+print(pos_id.shape)
 print('pos_edge_id:', val_data.edge_idxs[pos_idx])
 print('counter pos_id:', Counter(pos_id))
+print('counter all_id:', Counter(val_data.sources))
+
+
+idxs = np.where(val_data.sources == 962  )
+surroundings = []
+print(len(idxs))
+for idx in idxs[0]:
+    if val_data.labels[idx] == 1 and pred_labels[idx] == 1 and val_data.timestamps[idx] > 140211: #
+        #print(pred_labels[idx], val_data.labels[idx], val_data.edge_idxs[idx])
+        print(val_data.sources[idx], val_data.destinations[idx], val_data.edge_idxs[idx], val_data.labels[idx],
+              pred_labels[idx], val_data.timestamps[idx])
+        #surroundings.append()
+
+
+
+
 
 
 '''
