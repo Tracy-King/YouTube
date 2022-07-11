@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 import math
+from utils.utils import LinearLayer
 
 from model.temporal_attention import TemporalAttentionLayer, TemporalAttentionLayerOrigin
 
@@ -27,6 +28,9 @@ class EmbeddingModule(nn.Module):
     self.n_edge_features = n_edge_features
     self.n_time_features = n_time_features
     self.dropout = dropout
+
+    self.LinearLayer = LinearLayer(embedding_dimension, embedding_dimension)
+
 
 
 
@@ -207,6 +211,17 @@ class GraphEmbedding(EmbeddingModule):
       effective_n_neighbors = n_neighbors if n_neighbors > 0 else 1
       neighbor_embeddings = neighbor_embeddings.view(len(source_nodes), effective_n_neighbors, -1)
       edge_time_embeddings = self.time_encoder(edge_deltas_torch)
+
+      #print(neighbor_embeddings.shape, source_node_features.shape)
+      for i in range(neighbor_embeddings.shape[0]):
+        neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_features[i])
+
+      if (torch.isfinite(neighbor_embeddings) == False).nonzero().shape[0] != 0:
+          print("inf detected")
+          neighbor_embeddings = torch.nan_to_num(neighbor_embeddings, nan=0.0, posinf=1.0, neginf=0.0)
+
+
+
 
       #print('type of edge_features', type(self.edge_features))
       edge_features = torch.from_numpy(self.edge_features[edge_idxs, :].astype(np.float32)).to(self.device)

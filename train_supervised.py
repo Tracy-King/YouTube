@@ -32,7 +32,7 @@ torch.manual_seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='concat_week_aug_10_v3.10')
+                    default='1kxCz6tt2MU_v3.10')      #   1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
                     default=10)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
@@ -370,15 +370,16 @@ for i in range(args.n_runs):
           #pred = (pred_prob_num+0.5).trunc()
           decoder_loss += decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
       else:
-          sample_index = random.sample(list(range(size)), int(size/10))
-          #print(len(sample_index))
-          random.shuffle(sample_index)
-          train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
-          train_y = labels_batch[sample_index]
-          if DECODER=='GBDT':
-            decoder.fit(train_x, train_y)
-          elif DECODER=='XGB':
-            decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
+          for d_idx in range(N_DECODERS):
+              pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
+          pred = torch.mean(pred_prob_num, 0).squeeze()
+          pred_label = torch.argmax(pred, dim=1).detach().cpu().numpy()
+          if len(np.unique(labels_batch)) == 2:
+              train_auc = roc_auc_score(labels_batch, pred_label)
+              train_pre = precision_score(labels_batch, pred_label)
+          # print(pred.shape)
+          # pred = (pred_prob_num+0.5).trunc()
+          decoder_loss += decoder_loss_criterion(pred, labels_batch_onehot)
           #decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #decoder.fit(train_x, train_y)   # for GBDT
           #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])

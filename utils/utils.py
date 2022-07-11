@@ -18,6 +18,20 @@ class MergeLayer(torch.nn.Module):
     return self.fc2(h)
 
 
+class LinearLayer(torch.nn.Module):
+  def __init__(self, dim1, dim2):
+    super().__init__()
+    self.fc1 = torch.nn.Linear(dim1, dim2)
+    self.act = torch.nn.ReLU()
+    self.bn = torch.nn.BatchNorm1d(dim2)
+
+    torch.nn.init.xavier_normal_(self.fc1.weight)
+
+  def forward(self, x):
+    h = self.fc1(x)
+    return self.bn(h)
+
+
 class BlockLSTM(torch.nn.Module):
     def __init__(self, time_steps, num_variables, lstm_hs=64, dropout=0.8, attention=False):
       super().__init__()
