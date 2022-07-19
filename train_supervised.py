@@ -45,8 +45,8 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=2000, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='concat_week_aug_3_v3.10', help='Prefix to name the checkpoints')
+parser.add_argument('--bs', type=int, default=500, help='Batch_size')
+parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
@@ -99,7 +99,7 @@ except:
 args.original_encoder = False
 args.original_decoder = False
 
-torch.autograd.set_detect_anomaly(True)
+#torch.autograd.set_detect_anomaly(True)
 #args.original_encoder = True
 args.use_memory = args.original_encoder
 #args.use_memory = True
@@ -182,7 +182,7 @@ train_ngh_finder = get_neighbor_finder(train_data, uniform=UNIFORM, max_node_idx
 
 
 
-DTargs = DTArgs(args.bs, args.node_dim, args.n_epoch, args.lr, device)
+#DTargs = DTArgs(args.bs, args.node_dim, args.n_epoch, args.lr, device)
 
 # Compute time statistics
 mean_time_shift_src, std_time_shift_src, mean_time_shift_dst, std_time_shift_dst = \
@@ -316,9 +316,11 @@ for i in range(args.n_runs):
         # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
       torch.cuda.empty_cache()
       decoder_loss = 0
-      if (torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0:
-          print("max and min and inf of pos_prob: ", min(source_embedding), max(source_embedding),
-                  (torch.isfinite(source_embedding) == False).nonzero().shape[0])
+      if ((torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0):
+          print("max and min and inf of pos_prob: ", source_embedding,
+                      (torch.isfinite(source_embedding) == False).nonzero().shape[0])
+          #print("max and min and inf of pos_prob: ", min(source_embedding), max(source_embedding),
+          #      torch.isfinite(source_embedding).nonzero().shape[0])
           source_embedding = torch.nan_to_num(source_embedding, nan=0.0, posinf=1.0, neginf=0.0)
       if TAG == 'superchat':
           pos_count = np.count_nonzero(labels_batch)
@@ -349,7 +351,7 @@ for i in range(args.n_runs):
           #print(len(sample_index))
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
-          # decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
+          decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
           #if DECODER=='GBDT':
           #  decoder.fit(train_x, train_y)   
           #elif DECODER=='XGB':
@@ -368,7 +370,7 @@ for i in range(args.n_runs):
             train_pre = precision_score(labels_batch, pred_label)
           #print(pred.shape)
           #pred = (pred_prob_num+0.5).trunc()
-          decoder_loss += decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
+          decoder_loss += decoder_loss_criterion(pred, labels_batch_onehot)
       else:
           for d_idx in range(N_DECODERS):
               pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
@@ -386,6 +388,7 @@ for i in range(args.n_runs):
           #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], size)
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss']) if DECODER=='XGB' else 0.0
+      #print(decoder_loss, source_embedding)
       decoder_loss.backward()
       optimizer.step()
       loss += decoder_loss / N_DECODERS

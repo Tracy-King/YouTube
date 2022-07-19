@@ -213,11 +213,11 @@ class GraphEmbedding(EmbeddingModule):
       edge_time_embeddings = self.time_encoder(edge_deltas_torch)
 
       #print(neighbor_embeddings.shape, source_node_features.shape)
-      for i in range(neighbor_embeddings.shape[0]):
-        neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_features[i])
+      #for i in range(neighbor_embeddings.shape[0]):
+      #  neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_features[i])
 
       if (torch.isfinite(neighbor_embeddings) == False).nonzero().shape[0] != 0:
-          print("inf detected")
+          print("inf detected", neighbor_embeddings, (torch.isfinite(neighbor_embeddings) == False).nonzero().shape[0])
           neighbor_embeddings = torch.nan_to_num(neighbor_embeddings, nan=0.0, posinf=1.0, neginf=0.0)
 
 

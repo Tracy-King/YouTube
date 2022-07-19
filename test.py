@@ -19,6 +19,19 @@ print(torch.cuda.is_available())
 print(torch.cuda.device_count())
 print(torch.cuda.get_device_name(0))
 
+
+source_embedding = torch.tensor([1, float('inf'), 2, float('-inf'), float('nan')])
+
+b = (torch.isfinite(source_embedding) == False).nonzero().shape[0]
+print(b)
+
+print((torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0)
+
+
+
+
+
+
 concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA',
                'qHZwDxea7fQ']  # , 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
 #                ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
@@ -50,7 +63,7 @@ for id in concat_list:
 
 print(data.info())
 data.to_csv('./concat_week_v3.10_tmp3.csv')
-'''
+
 
 dataset_name = 'concat_week_v3.10_tmp3'
 graph_df = pd.read_csv('./{}.csv'.format(dataset_name))
@@ -100,7 +113,7 @@ for idx in idxs[0]:
 
 
 
-'''
+
 print(a)
 npy = np.load('embedding/UC1opHUrw8rvnsadT-iGp7Cg/97DWg8tqo4M_aug.npy')
 data = pd.read_csv('embedding/UC1opHUrw8rvnsadT-iGp7Cg/97DWg8tqo4M_aug.csv')
