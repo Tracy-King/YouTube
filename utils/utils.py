@@ -31,7 +31,7 @@ class LinearLayer(torch.nn.Module):
     torch.nn.init.xavier_normal_(self.fc1.weight)
 
   def forward(self, x):
-    h = self.fc1(x)
+    h = self.act(self.fc1(x))
     return self.bn(h)
 
 

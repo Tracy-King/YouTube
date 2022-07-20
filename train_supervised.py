@@ -34,7 +34,7 @@ parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='1kxCz6tt2MU_v3.10')      #   1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=10)
+                    default=50)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
@@ -43,15 +43,15 @@ parser.add_argument('--n_estimators', type=int, help='Number of estimators in de
                     default=3000)
 parser.add_argument('--max_depth', type=int, help='Number of maximum depth in decoder',
                     default=20)
-parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
-parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=500, help='Batch_size')
+parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
+parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
+parser.add_argument('--bs', type=int, default=1000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=2, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
+parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.2, help='Dropout probability')

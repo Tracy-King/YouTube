@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from utils.utils import MergeLayer
+from utils.utils import MergeLayer, LinearLayer
 
 
 class TemporalAttentionLayer(torch.nn.Module):
@@ -25,6 +25,7 @@ class TemporalAttentionLayer(torch.nn.Module):
     self.key_dim = n_neighbors_features + time_dim + n_edge_features
 
     self.merger = MergeLayer(self.query_dim, n_node_old_embedding, n_node_features, output_dimension)
+    self.linear = LinearLayer(self.query_dim, output_dimension)
     self.gru = nn.GRU(self.query_dim, self.embed_dim, 1)
 
     self.multi_head_target = nn.MultiheadAttention(embed_dim=self.query_dim,
@@ -50,7 +51,7 @@ class TemporalAttentionLayer(torch.nn.Module):
     """
 
     src_node_features_unrolled = torch.unsqueeze(src_node_features, dim=1)
-    #src_node_old_embedding_unrolled = torch.unsqueeze(src_node_old_embedding, dim=0)
+    src_node_old_embedding_unrolled = torch.unsqueeze(src_node_old_embedding, dim=0)
     query = torch.cat([src_node_features_unrolled, src_time_features], dim=2)
     key = torch.cat([neighbors_features, edge_features, neighbors_time_features], dim=2)
 
@@ -94,7 +95,8 @@ class TemporalAttentionLayer(torch.nn.Module):
     #print(attn_output.shape)
 
     # Skip connection with temporal attention over neighborhood and the features of the node itself
-    attn_output = self.merger(attn_output, src_node_features)
+    #attn_output = self.merger(attn_output, src_node_features_unrolled)
+    attn_output = self.linear(attn_output)
 
     return attn_output, attn_output_weights
 

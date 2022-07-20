@@ -253,3 +253,4 @@ dynamicGraphv2/
 *mem_track.txt
 *.pkl
 *.json
+BERT-*
