@@ -19,11 +19,14 @@ print(torch.cuda.is_available())
 print(torch.cuda.device_count())
 print(torch.cuda.get_device_name(0))
 
-a = np.arange(10)
-a = np.tile(a, (3, 1))
-print(a)
+a = np.arange(4)
+a = np.tile(a, (3, 2, 1))
+print('a:', a, a.shape)
 
-b = np.arange(3)
+b = np.ones(2)*3
+b = np.tile(b, (3,1))
+print('b:', b, b.shape)
+
 a = torch.from_numpy(a)
 b = torch.from_numpy(b)
 
