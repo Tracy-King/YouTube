@@ -55,6 +55,11 @@ def get_data_node_classification(dataset_name, tag, dataset_r1, dataset_r2, NODE
 
   edge_features = np.array([[w, l] for w, l in zip(weight, length)])
 
+  #print('node_feature:', (np.isfinite(node_features)==False).nonzero())
+  #print('edge_feature:', (np.isfinite(node_features)==False).nonzero())
+  #print('timestamps:', (np.isfinite(timestamps)==False).nonzero())
+
+
 
   random.seed(2020)
 

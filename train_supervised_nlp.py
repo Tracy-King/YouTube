@@ -177,7 +177,7 @@ concat_week = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZw
 concat_half = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
 model_path = 'cl-tohoku/bert-base-japanese'# 'bert-base-cased' #'BERT-base_mecab-ipadic-bpe-32k'
 max_length = 32
-data_list = concat_week
+data_list = concat_half
 ratio = 0.9
 
 flag = 0

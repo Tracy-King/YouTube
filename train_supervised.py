@@ -32,9 +32,9 @@ torch.manual_seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='concat_week_aug_10_v3.10')
+                    default='1kxCz6tt2MU_v3.10')      #   1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=10)
+                    default=20)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
@@ -43,15 +43,15 @@ parser.add_argument('--n_estimators', type=int, help='Number of estimators in de
                     default=3000)
 parser.add_argument('--max_depth', type=int, help='Number of maximum depth in decoder',
                     default=20)
-parser.add_argument('--dataset_r1', type=float, default=0.70, help='Validation dataset ratio')
-parser.add_argument('--dataset_r2', type=float, default=0.85, help='Test dataset ratio')
+parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
+parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
 parser.add_argument('--bs', type=int, default=2000, help='Batch_size')
-parser.add_argument('--prefix', type=str, default='concat_week_aug_3_v3.10', help='Prefix to name the checkpoints')
+parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
 parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=2, help='Number of network layers')
-parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate')
+parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
 parser.add_argument('--n_runs', type=int, default=1, help='Number of runs')
 parser.add_argument('--drop_out', type=float, default=0.2, help='Dropout probability')
@@ -99,7 +99,7 @@ except:
 args.original_encoder = False
 args.original_decoder = False
 
-torch.autograd.set_detect_anomaly(True)
+#torch.autograd.set_detect_anomaly(True)
 #args.original_encoder = True
 args.use_memory = args.original_encoder
 #args.use_memory = True
@@ -182,7 +182,7 @@ train_ngh_finder = get_neighbor_finder(train_data, uniform=UNIFORM, max_node_idx
 
 
 
-DTargs = DTArgs(args.bs, args.node_dim, args.n_epoch, args.lr, device)
+#DTargs = DTArgs(args.bs, args.node_dim, args.n_epoch, args.lr, device)
 
 # Compute time statistics
 mean_time_shift_src, std_time_shift_src, mean_time_shift_dst, std_time_shift_dst = \
@@ -316,16 +316,18 @@ for i in range(args.n_runs):
         # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
       torch.cuda.empty_cache()
       decoder_loss = 0
-      if (torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0:
-          print("max and min and inf of pos_prob: ", min(source_embedding), max(source_embedding),
-                  (torch.isfinite(source_embedding) == False).nonzero().shape[0])
+      if ((torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0):
+          print("max and min and inf of pos_prob: ", source_embedding,
+                      (torch.isfinite(source_embedding) == False).nonzero().shape[0])
+          #print("max and min and inf of pos_prob: ", min(source_embedding), max(source_embedding),
+          #      torch.isfinite(source_embedding).nonzero().shape[0])
           source_embedding = torch.nan_to_num(source_embedding, nan=0.0, posinf=1.0, neginf=0.0)
       if TAG == 'superchat':
           pos_count = np.count_nonzero(labels_batch)
           neg_count = size - pos_count
           pos_weight = neg_count / (pos_count + 1)
           #print("pos_weight:{}".format(pos_weight))
-
+          '''
           # under sampling start
           index = list(range(size))
           sample_pos_index = []
@@ -341,7 +343,7 @@ for i in range(args.n_runs):
           random.shuffle(sample_pos_index)
           sample_index = sample_pos_index
           #under sampling end
-
+          '''
           #train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
           #train_y = labels_batch[sample_index]
           #train_x = source_embedding.clone().detach().cpu().numpy()
@@ -349,7 +351,7 @@ for i in range(args.n_runs):
           #print(len(sample_index))
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
-          # decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
+          decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
           #if DECODER=='GBDT':
           #  decoder.fit(train_x, train_y)   
           #elif DECODER=='XGB':
@@ -368,29 +370,31 @@ for i in range(args.n_runs):
             train_pre = precision_score(labels_batch, pred_label)
           #print(pred.shape)
           #pred = (pred_prob_num+0.5).trunc()
-          decoder_loss += decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
+          decoder_loss += decoder_loss_criterion(pred, labels_batch_onehot)
       else:
-          sample_index = random.sample(list(range(size)), int(size/10))
-          #print(len(sample_index))
-          random.shuffle(sample_index)
-          train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
-          train_y = labels_batch[sample_index]
-          if DECODER=='GBDT':
-            decoder.fit(train_x, train_y)
-          elif DECODER=='XGB':
-            decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
+          for d_idx in range(N_DECODERS):
+              pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
+          pred = torch.mean(pred_prob_num, 0).squeeze()
+          pred_label = torch.argmax(pred, dim=1).detach().cpu().numpy()
+          if len(np.unique(labels_batch)) == 2:
+              train_auc = roc_auc_score(labels_batch, pred_label)
+              train_pre = precision_score(labels_batch, pred_label)
+          # print(pred.shape)
+          # pred = (pred_prob_num+0.5).trunc()
+          decoder_loss += decoder_loss_criterion(pred, labels_batch_onehot)
           #decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #decoder.fit(train_x, train_y)   # for GBDT
           #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])
           #decoder_loss, pred = decoder.train_(source_embedding[sample_index], labels_batch_torch[sample_index], size)
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss']) if DECODER=='XGB' else 0.0
+      #print(decoder_loss, source_embedding)
       decoder_loss.backward()
       optimizer.step()
       loss += decoder_loss / N_DECODERS
       torch.cuda.empty_cache()
-      if (k%1000==0):
-        print(k, loss)
+      if (k%10==0):
+        print(k, '/', num_batch, loss)
         #gpu_tracker.track()
     train_losses.append(loss.item())
     #gpu_tracker.track()
