@@ -194,6 +194,9 @@ class GraphEmbedding(EmbeddingModule):
         n_neighbors=n_neighbors)
 
       neighbors_torch = torch.from_numpy(neighbors).long().to(self.device)
+      edge_features = torch.from_numpy(self.edge_features[edge_idxs, :].astype(np.float32)).to(self.device)
+      edge_features = torch.mul(edge_features[:, :, 0], edge_features[:, :, 1])
+      #print('edge_features', edge_features.shape)
 
       #edge_idxs = torch.from_numpy(edge_idxs).long().to(self.device)
 
@@ -202,6 +205,7 @@ class GraphEmbedding(EmbeddingModule):
       edge_deltas_torch = torch.from_numpy(edge_deltas).float().to(self.device)
 
       neighbors = neighbors.flatten()
+      #print(neighbors, neighbors.shape)
       neighbor_embeddings = self.compute_embeddingv2(source_nodes=neighbors,
                                                    source_node_raw_features=torch.from_numpy(self.node_features[neighbors, :].astype(np.float32)).to(self.device),
                                                    timestamps=np.repeat(timestamps, n_neighbors),
@@ -210,6 +214,11 @@ class GraphEmbedding(EmbeddingModule):
 
       effective_n_neighbors = n_neighbors if n_neighbors > 0 else 1
       neighbor_embeddings = neighbor_embeddings.view(len(source_nodes), effective_n_neighbors, -1)
+      #print('neighbor_embeddings', neighbor_embeddings.shape)
+      for i in range(neighbor_embeddings.shape[0]):
+        for j in range(neighbor_embeddings.shape[1]):
+            neighbor_embeddings[i, j] = torch.mul(neighbor_embeddings[i, j], edge_features[i, j])
+
       edge_time_embeddings = self.time_encoder(edge_deltas_torch)
 
       #print(neighbor_embeddings.shape, source_node_features.shape)
@@ -224,9 +233,14 @@ class GraphEmbedding(EmbeddingModule):
 
 
       #print('type of edge_features', type(self.edge_features))
-      edge_features = torch.from_numpy(self.edge_features[edge_idxs, :].astype(np.float32)).to(self.device)
+      #edge_features = torch.from_numpy(self.edge_features[edge_idxs, :].astype(np.float32)).to(self.device)
+      #pos = np.where(edge_idxs!=0)
+      #print(edge_idxs[pos], edge_idxs.shape)
+      #print(source_node_features.shape, neighbor_embeddings.shape)
+      #print(edge_features.shape, edge_features[pos])
 
       mask = neighbors_torch == 0
+      #print(mask[pos])
 
       source_embedding = self.aggregate(n_layers,
                                         source_node_features,
@@ -271,6 +285,7 @@ class GraphSumEmbedding(GraphEmbedding):
     self.linear_2 = torch.nn.ModuleList(
       [torch.nn.Linear(embedding_dimension + n_node_features + n_time_features,
                        embedding_dimension) for _ in range(n_layers)])
+    self.bn = torch.nn.BatchNorm1d(embedding_dimension)
 
   def aggregate(self, n_layer, source_node_features, source_node_old_embedding, source_nodes_time_embedding,
                 neighbor_embeddings,
@@ -285,7 +300,7 @@ class GraphSumEmbedding(GraphEmbedding):
     source_embedding = torch.cat([neighbors_sum, source_features], dim=1)
     source_embedding = self.linear_2[n_layer - 1](source_embedding)
 
-    return source_embedding
+    return self.bn(source_embedding)
 
 
 class GraphAttentionEmbedding(GraphEmbedding):

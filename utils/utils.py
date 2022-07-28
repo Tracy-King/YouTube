@@ -272,6 +272,9 @@ class NeighborFinder:
       self.node_to_neighbors.append(np.array([x[0] for x in sorted_neighhbors]))
       self.node_to_edge_idxs.append(np.array([x[1] for x in sorted_neighhbors]))
       self.node_to_edge_timestamps.append(np.array([x[2] for x in sorted_neighhbors]))
+    #print('neighbors:', self.node_to_edge_timestamps[:5])
+    #print('neighbors:', self.node_to_edge_idxs[:5])
+    #print('neighbors:', self.node_to_neighbors[:5])
 
     self.uniform = uniform
 
@@ -299,6 +302,7 @@ class NeighborFinder:
     """
     i = np.searchsorted(self.node_to_edge_timestamps[src_idx], cut_time)  # 在有序array内 找到index 使得 a[index-1] < cut_time < a[index]
     j = np.searchsorted(self.node_to_edge_timestamps[src_idx], cut_time-window)  # 在有序array内 找到index 使得 a[index-1] < cut_time - window < a[index]
+    #print(i, j)
 
     return self.node_to_neighbors[src_idx][j:i], self.node_to_edge_idxs[src_idx][j:i], self.node_to_edge_timestamps[src_idx][j:i]
 
@@ -326,6 +330,7 @@ class NeighborFinder:
     for i, (source_node, timestamp) in enumerate(zip(source_nodes, timestamps)):
       source_neighbors, source_edge_idxs, source_edge_times = self.find_between(source_node,
                                                    timestamp, window=300)  # extracts all neighbors, interactions indexes and timestamps of all interactions of user source_node happening before cut_time
+      #print(source_neighbors)
 
       if len(source_neighbors) > 0 and n_neighbors > 0:
         if self.uniform:  # if we are applying uniform sampling, shuffles the data above before sampling

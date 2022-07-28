@@ -19,14 +19,16 @@ print(torch.cuda.is_available())
 print(torch.cuda.device_count())
 print(torch.cuda.get_device_name(0))
 
+a = np.arange(10)
+a = np.tile(a, (3, 1))
+print(a)
 
-source_embedding = torch.tensor([1, float('inf'), 2, float('-inf'), float('nan')])
+b = np.arange(3)
+a = torch.from_numpy(a)
+b = torch.from_numpy(b)
 
-b = (torch.isfinite(source_embedding) == False).nonzero().shape[0]
-print(b)
-
-print((torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0)
-
+c = torch.mul(a, b)
+print(c)
 
 
 

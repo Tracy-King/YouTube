@@ -63,10 +63,10 @@ class TGN(torch.nn.Module):
 
     self.use_memory = use_memory
     self.time_encoder = TimeEncode(dimension=self.n_node_features)
-    self.edge_encoder = EdgeEncode(dimension=self.n_node_features)
-    self.edge_encoder.to(device)
+    #self.edge_encoder = EdgeEncode(dimension=self.n_node_features)
+    #self.edge_encoder.to(device)
 
-    self.edge_feature_initiate()
+    #self.edge_feature_initiate()
     #print("type of self.edge_raw_feature", type(self.edge_raw_features))
     self.embedding_dict = dict()
     self.last_updated_dict = np.zeros(self.n_nodes)

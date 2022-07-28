@@ -22,7 +22,7 @@ class TemporalAttentionLayer(torch.nn.Module):
     self.time_dim = time_dim
 
     self.query_dim = n_node_old_embedding + time_dim
-    self.key_dim = n_neighbors_features + time_dim + n_edge_features
+    self.key_dim = n_neighbors_features + time_dim
 
     self.merger = MergeLayer(self.query_dim, n_node_old_embedding, n_node_features, output_dimension)
     self.linear = LinearLayer(self.query_dim, output_dimension)
@@ -51,9 +51,10 @@ class TemporalAttentionLayer(torch.nn.Module):
     """
 
     src_node_features_unrolled = torch.unsqueeze(src_node_features, dim=1)
-    src_node_old_embedding_unrolled = torch.unsqueeze(src_node_old_embedding, dim=0)
+    src_node_old_embedding_unrolled = torch.unsqueeze(src_node_old_embedding, dim=0)   # 0 at last
+    #print(src_node_features_unrolled.shape, src_node_old_embedding_unrolled.shape)
     query = torch.cat([src_node_features_unrolled, src_time_features], dim=2)
-    key = torch.cat([neighbors_features, edge_features, neighbors_time_features], dim=2)
+    key = torch.cat([neighbors_features, neighbors_time_features], dim=2)
 
 
     # print(neighbors_features.shape, edge_features.shape, neighbors_time_features.shape)
@@ -76,8 +77,8 @@ class TemporalAttentionLayer(torch.nn.Module):
 
     attn_output, attn_output_weights = self.multi_head_target(query=query, key=key, value=key,
                                                               key_padding_mask=neighbors_padding_mask)
-    # print(attn_output.shape, src_node_old_embedding_unrolled.shape)
-    # attn_output, _ = self.gru(attn_output, src_node_old_embedding_unrolled)
+    #print(attn_output.shape, src_node_old_embedding_unrolled.shape)
+    #attn_output, _ = self.gru(attn_output, src_node_old_embedding_unrolled)
 
     # mask = torch.unsqueeze(neighbors_padding_mask, dim=2)  # mask [B, N, 1]
     # mask = mask.permute([0, 2, 1])
@@ -95,8 +96,9 @@ class TemporalAttentionLayer(torch.nn.Module):
     #print(attn_output.shape)
 
     # Skip connection with temporal attention over neighborhood and the features of the node itself
-    #attn_output = self.merger(attn_output, src_node_features_unrolled)
-    attn_output = self.linear(attn_output)
+    #print(attn_output.shape, src_node_old_embedding.shape)
+    attn_output = self.merger(attn_output, src_node_old_embedding)
+    #attn_output = self.linear(attn_output)
 
     return attn_output, attn_output_weights
 

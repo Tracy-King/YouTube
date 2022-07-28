@@ -34,7 +34,7 @@ parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='1kxCz6tt2MU_v3.10')      #   1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=50)
+                    default=20)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
@@ -45,7 +45,7 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=1000, help='Batch_size')
+parser.add_argument('--bs', type=int, default=2000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
@@ -327,7 +327,7 @@ for i in range(args.n_runs):
           neg_count = size - pos_count
           pos_weight = neg_count / (pos_count + 1)
           #print("pos_weight:{}".format(pos_weight))
-
+          '''
           # under sampling start
           index = list(range(size))
           sample_pos_index = []
@@ -343,7 +343,7 @@ for i in range(args.n_runs):
           random.shuffle(sample_pos_index)
           sample_index = sample_pos_index
           #under sampling end
-
+          '''
           #train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
           #train_y = labels_batch[sample_index]
           #train_x = source_embedding.clone().detach().cpu().numpy()
@@ -393,8 +393,8 @@ for i in range(args.n_runs):
       optimizer.step()
       loss += decoder_loss / N_DECODERS
       torch.cuda.empty_cache()
-      if (k%1000==0):
-        print(k, loss)
+      if (k%10==0):
+        print(k, '/', num_batch, loss)
         #gpu_tracker.track()
     train_losses.append(loss.item())
     #gpu_tracker.track()
