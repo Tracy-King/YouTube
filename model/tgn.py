@@ -450,7 +450,7 @@ class TGN(torch.nn.Module):
         destination_node_embedding = memory[destination_nodes]
     '''
 
-    return source_node_embedding, destination_node_embedding
+    return source_node_embedding
 
 
   def compute_temporal_embeddings_seq(self, source_nodes, destination_nodes, edge_times,

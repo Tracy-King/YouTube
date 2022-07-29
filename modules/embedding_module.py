@@ -32,10 +32,6 @@ class EmbeddingModule(nn.Module):
     self.LinearLayer = LinearLayer(embedding_dimension, embedding_dimension)
 
 
-
-
-    #print(' self.node_old_embedding:', type( self.node_old_embedding))
-
   def update_old_embeddings(self, nodes, embeddings):
       for i in range(len(nodes)):
         self.node_old_embedding[nodes[i]] = embeddings[nodes[i]]
@@ -193,8 +189,6 @@ class GraphEmbedding(EmbeddingModule):
         timestamps,
         n_neighbors=n_neighbors)
 
-      effective_n_neighbors = n_neighbors if n_neighbors > 0 else 1
-
       neighbors_torch = torch.from_numpy(neighbors).long().to(self.device)
       edge_features = torch.from_numpy(self.edge_features[edge_idxs, :].astype(np.float32)).to(self.device)
       edge_features = torch.mul(edge_features[:, :, 0], edge_features[:, :, 1])
@@ -225,8 +219,8 @@ class GraphEmbedding(EmbeddingModule):
       edge_time_embeddings = self.time_encoder(edge_deltas_torch)
 
       #print(neighbor_embeddings.shape, source_node_features.shape)
-      for i in range(neighbor_embeddings.shape[0]):
-        neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_features[i])
+      #for i in range(neighbor_embeddings.shape[0]):
+      #  neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_features[i])
 
       if (torch.isfinite(neighbor_embeddings) == False).nonzero().shape[0] != 0:
           print("inf detected", neighbor_embeddings, (torch.isfinite(neighbor_embeddings) == False).nonzero().shape[0])
