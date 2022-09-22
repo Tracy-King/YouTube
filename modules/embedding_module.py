@@ -32,10 +32,6 @@ class EmbeddingModule(nn.Module):
     self.LinearLayer = LinearLayer(embedding_dimension, embedding_dimension)
 
 
-
-
-    #print(' self.node_old_embedding:', type( self.node_old_embedding))
-
   def update_old_embeddings(self, nodes, embeddings):
       for i in range(len(nodes)):
         self.node_old_embedding[nodes[i]] = embeddings[nodes[i]]
@@ -196,6 +192,8 @@ class GraphEmbedding(EmbeddingModule):
       neighbors_torch = torch.from_numpy(neighbors).long().to(self.device)
       edge_features = torch.from_numpy(self.edge_features[edge_idxs, :].astype(np.float32)).to(self.device)
       edge_features = torch.mul(edge_features[:, :, 0], edge_features[:, :, 1])
+      edge_weight = torch.tile(torch.unsqueeze(edge_features, dim=2), (1, 1, self.n_node_features))
+      #print('edge_weight', (edge_weight.shape))
       #print('edge_features', edge_features.shape)
 
       #edge_idxs = torch.from_numpy(edge_idxs).long().to(self.device)
@@ -216,14 +214,13 @@ class GraphEmbedding(EmbeddingModule):
       neighbor_embeddings = neighbor_embeddings.view(len(source_nodes), effective_n_neighbors, -1)
       #print('neighbor_embeddings', neighbor_embeddings.shape)
       for i in range(neighbor_embeddings.shape[0]):
-        for j in range(neighbor_embeddings.shape[1]):
-            neighbor_embeddings[i, j] = torch.mul(neighbor_embeddings[i, j], edge_features[i, j])
+        neighbor_embeddings[i] = torch.sub(torch.mul(neighbor_embeddings[i], edge_weight[i]), source_node_features[i])
 
       edge_time_embeddings = self.time_encoder(edge_deltas_torch)
 
       #print(neighbor_embeddings.shape, source_node_features.shape)
-      for i in range(neighbor_embeddings.shape[0]):
-        neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_features[i])
+      #for i in range(neighbor_embeddings.shape[0]):
+      #  neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_features[i])
 
       #if (torch.isfinite(neighbor_embeddings) == False).nonzero().shape[0] != 0:
       #    print("inf detected", neighbor_embeddings, (torch.isfinite(neighbor_embeddings) == False).nonzero().shape[0])

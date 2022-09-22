@@ -45,7 +45,7 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=2000, help='Batch_size')
+parser.add_argument('--bs', type=int, default=500, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
@@ -282,20 +282,20 @@ for i in range(args.n_runs):
       labels_batch = train_data.labels[s_idx: e_idx]
 
       size = len(sources_batch)
-      pred_prob_num = torch.zeros((N_DECODERS, size, 2)).to(device)
+      pred_prob_num = torch.zeros((N_DECODERS, size, 1)).to(device)
 
 
-      source_embedding, destination_embedding = tgn.compute_temporal_embeddings(sources_batch,
+      source_embedding = tgn.compute_temporal_embeddings(sources_batch,
                                                                                      destinations_batch,
                                                                                      timestamps_batch,
                                                                                      edge_idxs_batch,
                                                                                      NUM_NEIGHBORS)
 
       #labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
-      with torch.no_grad():
-        ones = torch.sparse.torch.eye(2)
-        labels_batch_onehot = ones.index_select(0, torch.from_numpy(labels_batch)).to(device)
-      #labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+      #with torch.no_grad():
+      #  ones = torch.sparse.torch.eye(2)
+      #  labels_batch_onehot = ones.index_select(0, torch.from_numpy(labels_batch)).to(device)
+      labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
       '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
@@ -364,13 +364,14 @@ for i in range(args.n_runs):
           for d_idx in range(N_DECODERS):
             pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
           pred = torch.mean(pred_prob_num, 0).squeeze()
-          pred_label = torch.argmax(pred, dim=1).detach().cpu().numpy()
+          pred_label = (pred + 0.5).trunc().detach().cpu().numpy()
+          #pred_label = torch.argmax(pred, dim=0).detach().cpu().numpy()
           if len(np.unique(labels_batch)) == 2:
             train_auc = roc_auc_score(labels_batch, pred_label)
             train_pre = precision_score(labels_batch, pred_label)
           #print(pred.shape)
           #pred = (pred_prob_num+0.5).trunc()
-          decoder_loss += decoder_loss_criterion(pred, labels_batch_onehot)
+          decoder_loss += decoder_loss_criterion(pred, labels_batch_torch)
       else:
           for d_idx in range(N_DECODERS):
               pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
@@ -381,7 +382,7 @@ for i in range(args.n_runs):
               train_pre = precision_score(labels_batch, pred_label)
           # print(pred.shape)
           # pred = (pred_prob_num+0.5).trunc()
-          decoder_loss += decoder_loss_criterion(pred, labels_batch_onehot)
+          decoder_loss += decoder_loss_criterion(pred, labels_batch_torch)
           #decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #decoder.fit(train_x, train_y)   # for GBDT
           #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])
@@ -393,7 +394,7 @@ for i in range(args.n_runs):
       optimizer.step()
       loss += decoder_loss / N_DECODERS
       torch.cuda.empty_cache()
-      if (k%10==0):
+      if (k%100==0):
         print(k, '/', num_batch, loss)
         #gpu_tracker.track()
     train_losses.append(loss.item())
