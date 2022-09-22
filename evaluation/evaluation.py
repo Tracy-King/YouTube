@@ -39,8 +39,8 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
       pred_score = np.concatenate([(pos_prob).cpu().numpy(), (neg_prob).cpu().numpy()])
       true_label = np.concatenate([np.ones(size), np.zeros(size)])
 
-      if (np.isfinite(pred_score) == False).nonzero()[0].shape[0] != 0:
-        pred_score = np.nan_to_num(pred_score, nan=0.0, posinf=1.0, neginf=0.0)
+      #if (np.isfinite(pred_score) == False).nonzero()[0].shape[0] != 0:
+      #  pred_score = np.nan_to_num(pred_score, nan=0.0, posinf=1.0, neginf=0.0)
 
       val_ap.append(average_precision_score(true_label, pred_score))
       val_auc.append(roc_auc_score(true_label, pred_score))
@@ -125,8 +125,8 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
   np.savetxt("./true_label.csv", data.labels, delimiter=' ')
   '''
 
-  if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
-    pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
+  #if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
+  #  pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
   #print(pred.device, next(decoder.parameters()).is_cuda, source_embedding.device)
   for d_idx in range(len(decoders)):
     pred_prob = decoders[d_idx](pred)

@@ -316,12 +316,12 @@ for i in range(args.n_runs):
         # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
       torch.cuda.empty_cache()
       decoder_loss = 0
-      if ((torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0):
-          print("max and min and inf of pos_prob: ", source_embedding,
-                      (torch.isfinite(source_embedding) == False).nonzero().shape[0])
+      #if ((torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0):
+      #    print("max and min and inf of pos_prob: ", source_embedding,
+      #                (torch.isfinite(source_embedding) == False).nonzero().shape[0])
           #print("max and min and inf of pos_prob: ", min(source_embedding), max(source_embedding),
           #      torch.isfinite(source_embedding).nonzero().shape[0])
-          source_embedding = torch.nan_to_num(source_embedding, nan=0.0, posinf=1.0, neginf=0.0)
+      #    source_embedding = torch.nan_to_num(source_embedding, nan=0.0, posinf=1.0, neginf=0.0)
       if TAG == 'superchat':
           pos_count = np.count_nonzero(labels_batch)
           neg_count = size - pos_count
