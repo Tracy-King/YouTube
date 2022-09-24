@@ -400,16 +400,6 @@ class TGN(torch.nn.Module):
     source_node_embedding = node_embedding[:n_samples]
     destination_node_embedding = node_embedding[n_samples:]
 
-    for idx in range(len(source_nodes) - 1, -1, -1):
-      if source_nodes[idx] not in self.embedding_dict.keys():
-        self.embedding_dict[source_nodes[idx]] = source_node_embedding[idx]
-      if destination_nodes[idx] not in self.embedding_dict.keys():
-        self.embedding_dict[destination_nodes[idx]] = destination_node_embedding[idx]
-    # print(self.embedding_dict.keys())
-    self.embedding_module.update_old_embeddings(np.unique(np.concatenate([source_nodes, destination_nodes])),
-                                                self.embedding_dict)
-    self.embedding_dict.clear()
-
     for i, ts in zip(nodes, timestamps):
       self.last_updated_dict[i] = ts
 

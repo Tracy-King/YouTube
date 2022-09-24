@@ -28,6 +28,7 @@ class EmbeddingModule(nn.Module):
     self.n_edge_features = n_edge_features
     self.n_time_features = n_time_features
     self.dropout = dropout
+    self.embedding_dict = dict()
 
     self.LinearLayer = LinearLayer(embedding_dimension, embedding_dimension)
 
@@ -247,6 +248,13 @@ class GraphEmbedding(EmbeddingModule):
                                         edge_time_embeddings,
                                         edge_features,
                                         mask)
+
+      for idx in range(len(source_nodes) - 1, -1, -1):
+          if source_nodes[idx] not in self.embedding_dict.keys():
+              self.embedding_dict[source_nodes[idx]] = source_embedding[idx]
+      # print(self.embedding_dict.keys())
+      self.update_old_embeddings(np.unique(source_nodes), self.embedding_dict)
+      self.embedding_dict.clear()
 
       return source_embedding
 

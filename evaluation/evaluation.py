@@ -78,7 +78,7 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
       timestamps_batch = data.timestamps[s_idx:e_idx]
       edge_idxs_batch = edge_idxs[s_idx: e_idx]
 
-      source_embedding, destination_embedding = tgn.compute_temporal_embeddings(sources_batch,
+      source_embedding = tgn.compute_temporal_embeddings(sources_batch,
                                                                                    destinations_batch,
                                                                                    timestamps_batch,
                                                                                    edge_idxs_batch,
