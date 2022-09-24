@@ -205,6 +205,7 @@ class GraphEmbedding(EmbeddingModule):
 
       neighbors = neighbors.flatten()
       #print(neighbors, neighbors.shape)
+
       neighbor_embeddings = self.compute_embeddingv2(source_nodes=neighbors,
                                                    source_node_raw_features=self.node_features[neighbors, :],
                                                    timestamps=np.repeat(timestamps, n_neighbors),
@@ -214,6 +215,7 @@ class GraphEmbedding(EmbeddingModule):
       effective_n_neighbors = n_neighbors if n_neighbors > 0 else 1
       neighbor_embeddings = neighbor_embeddings.view(len(source_nodes), effective_n_neighbors, -1)
       #print('neighbor_embeddings', neighbor_embeddings.shape)
+
       for i in range(neighbor_embeddings.shape[0]):
         neighbor_embeddings[i] = torch.sub(torch.mul(neighbor_embeddings[i], edge_weight[i]), source_node_old_embedding[i])
 
@@ -249,12 +251,6 @@ class GraphEmbedding(EmbeddingModule):
                                         edge_features,
                                         mask)
 
-      for idx in range(len(source_nodes) - 1, -1, -1):
-          if source_nodes[idx] not in self.embedding_dict.keys():
-              self.embedding_dict[source_nodes[idx]] = source_embedding[idx]
-      # print(self.embedding_dict.keys())
-      self.update_old_embeddings(np.unique(source_nodes), self.embedding_dict)
-      self.embedding_dict.clear()
 
       return source_embedding
 

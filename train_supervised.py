@@ -19,7 +19,7 @@ from model.softDT import DTArgs, SoftDecisionTree
 from utils.utils import EarlyStopMonitor, get_neighbor_finder, MLP
 from utils.data_processing import compute_time_statistics, get_data_node_classification
 from evaluation.evaluation import eval_node_classification
-
+import pynvml
 from gpu_mem_track import MemTracker
 
 from xgboost import plot_importance
@@ -45,7 +45,7 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
+parser.add_argument('--bs', type=int, default=100, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
@@ -160,6 +160,11 @@ ch.setFormatter(formatter)
 logger.addHandler(fh)
 logger.addHandler(ch)
 logger.info(args)
+
+pynvml.nvmlInit()
+handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+print("{}/{}".format(meminfo.used/1024**2, meminfo.total/1024**2))
 
 torch.cuda.empty_cache()
 
@@ -387,15 +392,17 @@ for i in range(args.n_runs):
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss']) if DECODER=='XGB' else 0.0
       #print(decoder_loss, source_embedding)
-      #decoder_loss.backward()
-      #optimizer.step()
-      loss += decoder_loss / N_DECODERS
+      decoder_loss.backward()
+      optimizer.step()
+      loss += decoder_loss.item() / N_DECODERS
       torch.cuda.empty_cache()
       if (k%1==0):
         print(k, '/', num_batch, loss)
+        meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        print("{}/{}".format(meminfo.used / 1024 ** 2, meminfo.total / 1024 ** 2))
         #gpu_tracker.track()
-    loss.backward()
-    optimizer.step()
+    #loss.backward()
+    #optimizer.step()
     train_losses.append(loss)
     #gpu_tracker.track()
     torch.cuda.empty_cache()
