@@ -397,9 +397,10 @@ for i in range(args.n_runs):
       loss += decoder_loss.item() / N_DECODERS
       torch.cuda.empty_cache()
       if (k%1==0):
-        print(k, '/', num_batch, loss)
+        logger.debug("{}/{},{}".format(k, num_batch, loss))
+        #print()
         meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        print("{}/{}".format(meminfo.used / 1024 ** 2, meminfo.total / 1024 ** 2))
+        logger.debug("{}/{}".format(meminfo.used / 1024 ** 2, meminfo.total / 1024 ** 2))
         #gpu_tracker.track()
     #loss.backward()
     #optimizer.step()
