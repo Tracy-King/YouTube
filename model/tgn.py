@@ -42,10 +42,10 @@ class TGN(torch.nn.Module):
     #print('self.update_record_idx:', self.update_records_idx, type(self.update_records_idx))
     self.update_records_idx = np.array(sorted(self.update_records_idx))
 
-    #self.node_raw_features = torch.from_numpy(node_features.astype(np.float32)).to(device)
-    #self.edge_raw_features = torch.from_numpy(edge_features.astype(np.float32)).to(device)
-    self.node_raw_features = node_features
-    self.edge_raw_features = edge_features
+    self.node_raw_features = torch.from_numpy(node_features.astype(np.float32)).to(device)
+    self.edge_raw_features = torch.from_numpy(edge_features.astype(np.float32)).to(device)
+    #self.node_raw_features = node_features
+    #self.edge_raw_features = edge_features
 
 
     self.n_node_features = self.node_raw_features.shape[1]
@@ -139,6 +139,7 @@ class TGN(torch.nn.Module):
   def edge_feature_initiate(self):
     if os.path.exists('./dynamicGraph/edge_feature_{}.npy'.format(self.data)):
       self.edge_raw_features = np.load('./dynamicGraph/edge_feature_{}.npy'.format(self.data))
+      torch.from_numpy(self.edge_raw_features.astype(np.float32)).to(self.device)
       self.n_edge_feature = self.edge_raw_features.shape[1]
       print("Edge feature loaded!")
     else:
@@ -152,17 +153,16 @@ class TGN(torch.nn.Module):
         input_data = torch.from_numpy(self.edge_raw_features[batch:end].astype(np.float32)).to(self.device)
         if batch == 0:
           result = self.edge_encoder(input_data).view(n_batch, -1)
-          result = result.cpu().detach().numpy()
+          #result = result.cpu().detach().numpy()
         else:
           tmp = self.edge_encoder(input_data).view(n_batch, -1)
-          tmp = tmp.cpu().detach().numpy()
-          #result = torch.cat((result, tmp), dim=0)
-          result = np.vstack((result, tmp))
+          result = torch.cat((result, tmp), dim=0)
+          #result = np.vstack((result, tmp))
 
-      self.edge_raw_features = result
-      self.n_edge_features = self.edge_raw_features.shape[1]
+      self.edge_raw_features = result     #torch.from_numpy(result.astype(np.float32)).to(self.device)
+      #self.n_edge_features = self.edge_raw_features.shape[1]
       torch.cuda.empty_cache()
-      np.save('./dynamicGraph/edge_feature_{}.npy'.format(self.data), self.edge_raw_features)
+      np.save('./dynamicGraph/edge_feature_{}.npy'.format(self.data), result)
       print("Edge feature saved!")
 
     assert self.edge_raw_features.shape[0] == self.n_edges
@@ -186,7 +186,7 @@ class TGN(torch.nn.Module):
     return
 
   def update_node_features(self, node_idx, records_idx):
-    self.node_raw_features[node_idx] = np.array(self.update_records[str(records_idx)]).astype(np.float32)
+    self.node_raw_features[node_idx] = torch.from_numpy(np.array(self.update_records[str(records_idx)]).astype(np.float32)).to(self.device)
     return
 
   def compute_temporal_embeddings_origin(self, source_nodes, destination_nodes, negative_nodes, edge_times,
@@ -356,20 +356,20 @@ class TGN(torch.nn.Module):
           end_slice = update_nodes_idx[i + 1]
           self.update_node_features(source_nodes[start_slice], updates_idx[i])
 
-          source_node_features = np.vstack(
-            (source_node_features, self.node_raw_features[source_nodes[start_slice:end_slice], :]))
-          destination_node_features = np.vstack(
-            (destination_node_features, self.node_raw_features[destination_nodes[start_slice:end_slice], :]))
+          source_node_features = torch.cat(
+            (source_node_features, self.node_raw_features[source_nodes[start_slice:end_slice], :]), 0)
+          destination_node_features = torch.cat(
+            (destination_node_features, self.node_raw_features[destination_nodes[start_slice:end_slice], :]), 0)
 
           # self.node_raw_features[source_nodes[update_nodes_idx[-1]]] = updates[update_nodes_idx[-1]]
           # print(source_nodes[update_nodes_idx])
-          self.update_node_features(source_nodes[update_nodes_idx[-1]], updates_idx[-1])
+        self.update_node_features(source_nodes[update_nodes_idx[-1]], updates_idx[-1])
         if update_nodes_idx[-1] < n_samples:
           start_slice = update_nodes_idx[-1]
-          source_node_features = np.vstack(
-            (source_node_features, self.node_raw_features[source_nodes[start_slice:], :]))
-          destination_node_features = np.vstack(
-            (destination_node_features, self.node_raw_features[destination_nodes[start_slice:], :]))
+          source_node_features = torch.cat(
+            (source_node_features, self.node_raw_features[source_nodes[start_slice:], :]), 0)
+          destination_node_features = torch.cat(
+            (destination_node_features, self.node_raw_features[destination_nodes[start_slice:], :]), 0)
       # print(len(source_node_features))
       assert len(source_node_features) == n_samples, 'source_node_feature error'
       assert len(destination_node_features) == n_samples, 'destination_node_feature error'
@@ -379,8 +379,7 @@ class TGN(torch.nn.Module):
       destination_node_features = self.node_raw_features[destination_nodes, :]
 
     # print(type(source_node_features), type(destination_node_features), type(negative_node_features))
-    node_features = np.vstack([source_node_features, destination_node_features])
-    node_features = torch.from_numpy(node_features.astype(np.float32)).to(self.device)
+    node_features = torch.cat((source_node_features, destination_node_features), 0)
     # source_node_features = torch.from_numpy(source_node_features.astype(np.float32)).to(self.device)
     # destination_node_features = torch.from_numpy(destination_node_features.astype(np.float32)).to(self.device)
     # negative_node_features = torch.from_numpy(negative_node_features.astype(np.float32)).to(self.device)
@@ -403,9 +402,9 @@ class TGN(torch.nn.Module):
 
     for idx in range(len(source_nodes) - 1, -1, -1):
       if source_nodes[idx] not in self.embedding_dict.keys():
-        self.embedding_dict[source_nodes[idx]] = source_node_embedding[idx].clone().detach().cpu().numpy()
+        self.embedding_dict[source_nodes[idx]] = source_node_embedding[idx]
       if destination_nodes[idx] not in self.embedding_dict.keys():
-        self.embedding_dict[destination_nodes[idx]] = destination_node_embedding[idx].clone().detach().cpu().numpy()
+        self.embedding_dict[destination_nodes[idx]] = destination_node_embedding[idx]
     # print(self.embedding_dict.keys())
     self.embedding_module.update_old_embeddings(np.unique(np.concatenate([source_nodes, destination_nodes])),
                                                 self.embedding_dict)
@@ -513,18 +512,18 @@ class TGN(torch.nn.Module):
       if n_updates != 0:
         for i in range(n_updates):
           update_node = source_nodes[update_nodes_idx[i]]
-          input = torch.from_numpy(self.node_raw_features[update_node, :].astype(np.float32)).to(self.device)
+          input = self.node_raw_features[update_node, :]
           hid = torch.tensor(self.update_records[str(updates_idx[i])]).to(self.device)
           #print(input.shape, hid.shape)
           input = torch.cat((input, hid), dim=0).unsqueeze(0)
           #print(input.shape)
           cur_node_embedding = self.seq_model(input).squeeze(2)
           #print(cur_node_embedding.shape)
-          self.node_raw_features[update_node] = cur_node_embedding.cpu().detach().numpy()
+          self.node_raw_features[update_node] = cur_node_embedding
       # print(len(source_node_features))
 
-    source_node_embedding = torch.from_numpy(self.node_raw_features[source_nodes, :].astype(np.float32)).to(self.device)
-    destination_node_embedding = torch.from_numpy(self.node_raw_features[destination_nodes, :].astype(np.float32)).to(self.device)
+    source_node_embedding = self.node_raw_features[source_nodes, :]
+    destination_node_embedding = self.node_raw_features[destination_nodes, :]
 
     # print(type(source_node_features), type(destination_node_features), type(negative_node_features))
     # node_features = np.vstack([source_node_features, destination_node_features])

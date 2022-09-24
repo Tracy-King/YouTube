@@ -34,7 +34,7 @@ parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='1kxCz6tt2MU_v3.10')      #   1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
 parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=20)
+                    default=1)
 parser.add_argument('--label', type=str, help='Label type(eg. superchat or membership)',
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
@@ -45,7 +45,7 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=500, help='Batch_size')
+parser.add_argument('--bs', type=int, default=5000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
@@ -125,7 +125,7 @@ NUM_EPOCH = args.n_epoch
 NUM_HEADS = args.n_head
 DROP_OUT = args.drop_out
 GPU = args.gpu
-UNIFORM = False#args.uniform
+UNIFORM = args.uniform
 NEW_NODE = args.new_node
 SEQ_LEN = NUM_NEIGHBORS
 DATA = args.data
@@ -235,13 +235,11 @@ for i in range(args.n_runs):
   #  decoder = xgb.XGBClassifier(max_depth=args.max_depth, learning_rate=LEARNING_RATE, n_estimators=args.n_estimators,
   #                            objective='reg:logistic', use_label_encoder=False)
   #decoder = SoftDecisionTree(DTargs).to(device)
-  decoder = MLP(node_features.shape[1], drop=DROP_OUT).to(device)
+  #decoder = MLP(node_features.shape[1], drop=DROP_OUT).to(device)
 
   params = list(tgn.parameters())
   for decoder in decoders:
     params = params + list(decoder.parameters())
-  #params = [decoder.parameters() for decoder in decoders]
-  #params = params + list(tgn.parameters())
   optimizer = torch.optim.Adagrad(params, lr=LEARNING_RATE)
   decoder_loss_criterion = torch.nn.BCELoss()
 
@@ -257,13 +255,9 @@ for i in range(args.n_runs):
   early_stopper = EarlyStopMonitor(max_round=args.patience)
   for epoch in range(args.n_epoch):
     start_epoch = time.time()
-    
-    # Initialize memory of the model at each epoch
-    if USE_MEMORY:
-      tgn.memory.__init_memory__()
+
 
     tgn = tgn.train()
-    #decoder = decoder.train()
     decoders = [decoder.train() for decoder in decoders]
     loss = 0
     train_auc = 0
@@ -282,7 +276,7 @@ for i in range(args.n_runs):
       labels_batch = train_data.labels[s_idx: e_idx]
 
       size = len(sources_batch)
-      pred_prob_num = torch.zeros((N_DECODERS, size, 1)).to(device)
+      pred_prob_num = torch.zeros((N_DECODERS, size, 2)).to(device)
 
 
       source_embedding = tgn.compute_temporal_embeddings(sources_batch,
@@ -291,11 +285,11 @@ for i in range(args.n_runs):
                                                                                      edge_idxs_batch,
                                                                                      NUM_NEIGHBORS)
 
-      #labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
-      #with torch.no_grad():
-      #  ones = torch.sparse.torch.eye(2)
-      #  labels_batch_onehot = ones.index_select(0, torch.from_numpy(labels_batch)).to(device)
-      labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
+      labels_batch_torch = torch.from_numpy(labels_batch).long().to(device)
+      with torch.no_grad():
+        ones = torch.sparse.torch.eye(2)
+        labels_batch_onehot = ones.index_select(0, torch.from_numpy(labels_batch)).to(device)
+      #labels_batch_torch = torch.from_numpy(labels_batch).float().to(device)
       '''
       weight = torch.from_numpy(np.array([1.0 if i==0 else 10.0 for i in labels_batch]).astype(np.float32)).to(device)
       decoder_loss_criterion = torch.nn.BCELoss(weight=weight)
@@ -314,8 +308,9 @@ for i in range(args.n_runs):
 
       #  decoder_loss_criterion = torch.nn.MSELoss()
         # print('auc:', roc_auc_score(labels_batch[sample_index], pred_u))
+
       torch.cuda.empty_cache()
-      decoder_loss = 0
+      #decoder_loss = 0
       #if ((torch.isfinite(source_embedding) == False).nonzero().shape[0] != 0):
       #    print("max and min and inf of pos_prob: ", source_embedding,
       #                (torch.isfinite(source_embedding) == False).nonzero().shape[0])
@@ -327,7 +322,7 @@ for i in range(args.n_runs):
           neg_count = size - pos_count
           pos_weight = neg_count / (pos_count + 1)
           #print("pos_weight:{}".format(pos_weight))
-          '''
+
           # under sampling start
           index = list(range(size))
           sample_pos_index = []
@@ -343,7 +338,7 @@ for i in range(args.n_runs):
           random.shuffle(sample_pos_index)
           sample_index = sample_pos_index
           #under sampling end
-          '''
+
           #train_x = source_embedding[sample_index].clone().detach().cpu().numpy()
           #train_y = labels_batch[sample_index]
           #train_x = source_embedding.clone().detach().cpu().numpy()
@@ -351,12 +346,12 @@ for i in range(args.n_runs):
           #print(len(sample_index))
               # under sampling end
           #pred_u = pred[sample_index].clone().detach().cpu().numpy()
-          decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
+          #decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(device))
           #if DECODER=='GBDT':
           #  decoder.fit(train_x, train_y)   
           #elif DECODER=='XGB':
           #  decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
-          #decoder_loss = decoder_loss_criterion(pred, labels_batch_onehot)
+          #decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
           #decoder.fit(train_x, train_y)    # for GBDT
           #decoder_loss, pred = decoder.train_(source_embedding, labels_batch_torch, size)
           #print(decoder.evals_result())
@@ -364,14 +359,16 @@ for i in range(args.n_runs):
           for d_idx in range(N_DECODERS):
             pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
           pred = torch.mean(pred_prob_num, 0).squeeze()
-          pred_label = (pred + 0.5).trunc().detach().cpu().numpy()
-          #pred_label = torch.argmax(pred, dim=0).detach().cpu().numpy()
+          #pred_label = (pred + 0.5).trunc().detach().cpu().numpy()
+          pred_label = torch.argmax(pred, dim=1).detach().cpu().numpy()
+
           if len(np.unique(labels_batch)) == 2:
+            #print(pred_label.shape, labels_batch.shape)
             train_auc = roc_auc_score(labels_batch, pred_label)
             train_pre = precision_score(labels_batch, pred_label)
           #print(pred.shape)
           #pred = (pred_prob_num+0.5).trunc()
-          decoder_loss += decoder_loss_criterion(pred, labels_batch_torch)
+          decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
       else:
           for d_idx in range(N_DECODERS):
               pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
@@ -382,7 +379,7 @@ for i in range(args.n_runs):
               train_pre = precision_score(labels_batch, pred_label)
           # print(pred.shape)
           # pred = (pred_prob_num+0.5).trunc()
-          decoder_loss += decoder_loss_criterion(pred, labels_batch_torch)
+          decoder_loss = decoder_loss_criterion(pred, labels_batch_torch)
           #decoder.fit(train_x, train_y, eval_set=[(train_x, train_y)], eval_metric=['logloss'], verbose=False)
           #decoder.fit(train_x, train_y)   # for GBDT
           #print(pred[sample_index][:10], labels_batch_torch[sample_index][:10])
@@ -390,14 +387,16 @@ for i in range(args.n_runs):
           # decoder_loss_criterion(pred[sample_index], labels_batch_torch[sample_index])
       #decoder_loss = np.mean(decoder.evals_result()['validation_0']['logloss']) if DECODER=='XGB' else 0.0
       #print(decoder_loss, source_embedding)
-      decoder_loss.backward()
-      optimizer.step()
+      #decoder_loss.backward()
+      #optimizer.step()
       loss += decoder_loss / N_DECODERS
       torch.cuda.empty_cache()
-      if (k%100==0):
+      if (k%1==0):
         print(k, '/', num_batch, loss)
         #gpu_tracker.track()
-    train_losses.append(loss.item())
+    loss.backward()
+    optimizer.step()
+    train_losses.append(loss)
     #gpu_tracker.track()
     torch.cuda.empty_cache()
 

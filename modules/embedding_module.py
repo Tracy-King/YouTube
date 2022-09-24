@@ -15,7 +15,7 @@ class EmbeddingModule(nn.Module):
     self.node_features = node_features
     self.device = device
     self.embedding_dimension = embedding_dimension
-    self.node_old_embedding = self.node_features#torch.from_numpy(self.node_features.astype(np.float32)).to(self.device)
+    self.node_old_embedding = self.node_features
     self.edge_features = edge_features
     self.update_records = update_records
     self.update_records_idx = [int(i) for i in update_records.keys()]
@@ -175,7 +175,7 @@ class GraphEmbedding(EmbeddingModule):
     source_nodes_time_embedding = self.time_encoder(torch.zeros_like(
       timestamps_torch))
     #source_node_features = self.node_features[source_nodes_torch, :]
-    source_node_old_embedding = torch.from_numpy(self.node_old_embedding[source_nodes, :].astype(np.float32)).to(self.device)
+    source_node_old_embedding = self.node_old_embedding[source_nodes, :]
     source_node_features = source_node_raw_features
     '''
     if self.use_memory:
@@ -190,7 +190,7 @@ class GraphEmbedding(EmbeddingModule):
         n_neighbors=n_neighbors)
 
       neighbors_torch = torch.from_numpy(neighbors).long().to(self.device)
-      edge_features = torch.from_numpy(self.edge_features[edge_idxs, :].astype(np.float32)).to(self.device)
+      edge_features = self.edge_features[edge_idxs, :]
       edge_features = torch.mul(edge_features[:, :, 0], edge_features[:, :, 1])
       edge_weight = torch.tile(torch.unsqueeze(edge_features, dim=2), (1, 1, self.n_node_features))
       #print('edge_weight', (edge_weight.shape))
@@ -205,7 +205,7 @@ class GraphEmbedding(EmbeddingModule):
       neighbors = neighbors.flatten()
       #print(neighbors, neighbors.shape)
       neighbor_embeddings = self.compute_embeddingv2(source_nodes=neighbors,
-                                                   source_node_raw_features=torch.from_numpy(self.node_features[neighbors, :].astype(np.float32)).to(self.device),
+                                                   source_node_raw_features=self.node_features[neighbors, :],
                                                    timestamps=np.repeat(timestamps, n_neighbors),
                                                    n_layers=n_layers - 1,
                                                    n_neighbors=n_neighbors)
@@ -214,7 +214,7 @@ class GraphEmbedding(EmbeddingModule):
       neighbor_embeddings = neighbor_embeddings.view(len(source_nodes), effective_n_neighbors, -1)
       #print('neighbor_embeddings', neighbor_embeddings.shape)
       for i in range(neighbor_embeddings.shape[0]):
-        neighbor_embeddings[i] = torch.sub(torch.mul(neighbor_embeddings[i], edge_weight[i]), source_node_features[i])
+        neighbor_embeddings[i] = torch.sub(torch.mul(neighbor_embeddings[i], edge_weight[i]), source_node_old_embedding[i])
 
       edge_time_embeddings = self.time_encoder(edge_deltas_torch)
 
