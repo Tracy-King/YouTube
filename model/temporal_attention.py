@@ -79,7 +79,7 @@ class TemporalAttentionLayer(torch.nn.Module):
                                                               key_padding_mask=neighbors_padding_mask)
     #print(attn_output.shape, src_node_old_embedding_unrolled.shape)
 
-    # attn_output, _ = self.gru(attn_output, src_node_old_embedding_unrolled)
+    attn_output, _ = self.gru(attn_output, src_node_old_embedding_unrolled)
 
     # mask = torch.unsqueeze(neighbors_padding_mask, dim=2)  # mask [B, N, 1]
     # mask = mask.permute([0, 2, 1])
@@ -99,7 +99,7 @@ class TemporalAttentionLayer(torch.nn.Module):
     # Skip connection with temporal attention over neighborhood and the features of the node itself
     #print(attn_output.shape, src_node_old_embedding.shape)
     #with torch.no_grad():
-    attn_output = self.merger(attn_output, src_node_old_embedding)
+    #attn_output = self.merger(attn_output, src_node_old_embedding)
     #attn_output = self.linear(attn_output)
 
     return attn_output, attn_output_weights
