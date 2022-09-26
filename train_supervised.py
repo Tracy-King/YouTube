@@ -396,7 +396,7 @@ for i in range(args.n_runs):
       optimizer.step()
       loss += decoder_loss.item() / N_DECODERS
       torch.cuda.empty_cache()
-      if (k%1000==0):
+      if (k%100==0):
         logger.debug("{}/{},{}".format(k, num_batch, loss))
         #print()
         meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
