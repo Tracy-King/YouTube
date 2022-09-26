@@ -337,7 +337,7 @@ for i in range(args.n_runs):
           if len(sample_pos_index) == 0:
             continue
           sample_neg_index = random.sample([i for i in index if i not in sample_pos_index],
-                                         min((len(sample_pos_index)+1), size-len(sample_pos_index)))
+                                         min(3*(len(sample_pos_index)+1), size-len(sample_pos_index)))
           #sample_neg_index = random.sample([i for i in index if i not in sample_pos_index], (len(sample_pos_index) + 1))
           sample_pos_index.extend(sample_neg_index)
           random.shuffle(sample_pos_index)
