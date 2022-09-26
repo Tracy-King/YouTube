@@ -45,7 +45,7 @@ parser.add_argument('--max_depth', type=int, help='Number of maximum depth in de
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=100, help='Batch_size')
+parser.add_argument('--bs', type=int, default=1000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
@@ -396,7 +396,7 @@ for i in range(args.n_runs):
       optimizer.step()
       loss += decoder_loss.item() / N_DECODERS
       torch.cuda.empty_cache()
-      if (k%100==0):
+      if (k%1000==0):
         logger.debug("{}/{},{}".format(k, num_batch, loss))
         #print()
         meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
