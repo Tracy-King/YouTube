@@ -80,8 +80,9 @@ class TemporalAttentionLayer(torch.nn.Module):
                                                               key_padding_mask=neighbors_padding_mask)
     #print(attn_output.shape, src_node_old_embedding_unrolled.shape)
 
-    #attn_output, _ = self.gru(attn_output, src_node_old_embedding_unrolled)
-    attn_output, _ = self.rnn(attn_output, src_node_old_embedding_unrolled)
+    # attn_output, _ = self.gru(key, query)
+    # attn_output, _ = self.gru(attn_output, src_node_old_embedding_unrolled)
+    # attn_output, _ = self.rnn(attn_output, src_node_old_embedding_unrolled)
 
     # mask = torch.unsqueeze(neighbors_padding_mask, dim=2)  # mask [B, N, 1]
     # mask = mask.permute([0, 2, 1])
@@ -95,13 +96,13 @@ class TemporalAttentionLayer(torch.nn.Module):
     # then added or concatenated to the original source node features and then fed into an MLP.
     # This means that an all zero vector is not used.
     attn_output = attn_output.masked_fill(invalid_neighborhood_mask, 0)
-    attn_output_weights = attn_output_weights.masked_fill(invalid_neighborhood_mask, 0)
+    #attn_output_weights = attn_output_weights.masked_fill(invalid_neighborhood_mask, 0)
     #print(attn_output.shape)
 
     # Skip connection with temporal attention over neighborhood and the features of the node itself
     #print(attn_output.shape, src_node_old_embedding.shape)
     #with torch.no_grad():
-    #attn_output = self.merger(attn_output, src_node_old_embedding)
+    attn_output = self.merger(attn_output, src_node_old_embedding)
     #attn_output = self.linear(attn_output)
 
     return attn_output, attn_output_weights
