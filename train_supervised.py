@@ -39,8 +39,8 @@ parser.add_argument('--label', type=str, help='Label type(eg. superchat or membe
                     choices=['superchat', 'membership'], default='superchat')
 parser.add_argument('--decoder', type=str, help='Type of decoder', choices=['GBDT', 'XGB'],
                     default='GBDT')
-parser.add_argument('--n_estimators', type=int, help='Number of estimators in decoder',
-                    default=3000)
+parser.add_argument('--n_undersample', type=int, help='Parameter for undersampling',
+                    default=3)
 parser.add_argument('--max_depth', type=int, help='Number of maximum depth in decoder',
                     default=20)
 parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
@@ -337,7 +337,7 @@ for i in range(args.n_runs):
           if len(sample_pos_index) == 0:
             continue
           sample_neg_index = random.sample([i for i in index if i not in sample_pos_index],
-                                         min(3*(len(sample_pos_index)+1), size-len(sample_pos_index)))
+                                         min(args.n_undersample*(len(sample_pos_index)+1), size-len(sample_pos_index)))
           #sample_neg_index = random.sample([i for i in index if i not in sample_pos_index], (len(sample_pos_index) + 1))
           sample_pos_index.extend(sample_neg_index)
           random.shuffle(sample_pos_index)
