@@ -217,8 +217,9 @@ class GraphEmbedding(EmbeddingModule):
       #print('neighbor_embeddings', neighbor_embeddings.shape)
 
       for i in range(neighbor_embeddings.shape[0]):
-        #neighbor_embeddings[i] = torch.mul(torch.sub(neighbor_embeddings[i], source_node_old_embedding[i]), edge_weight[i])
-        neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_old_embedding[i])
+        neighbor_embeddings[i] = torch.mul(torch.div(torch.sub(neighbor_embeddings[i], source_node_old_embedding[i]),
+                                                     source_node_old_embedding[i]), edge_weight[i])
+        #neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_old_embedding[i])
 
       edge_time_embeddings = self.time_encoder(edge_deltas_torch)
 
@@ -271,7 +272,7 @@ class GraphSumEmbedding(GraphEmbedding):
                n_heads=2, dropout=0.1, use_memory=True):
     super(GraphSumEmbedding, self).__init__(node_features=node_features,
                                             edge_features=edge_features,
-                                            update_records= update_records,
+                                            update_records=update_records,
                                             neighbor_finder=neighbor_finder,
                                             time_encoder=time_encoder, n_layers=n_layers,
                                             n_node_features=n_node_features,
