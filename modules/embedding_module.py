@@ -217,11 +217,7 @@ class GraphEmbedding(EmbeddingModule):
       #print('neighbor_embeddings', neighbor_embeddings.shape)
 
       for i in range(neighbor_embeddings.shape[0]):
-        tmp = torch.full_like(source_node_old_embedding[i], fill_value=float(1.0))
-        mask = (source_node_old_embedding[i] != 0)
-        tmp[mask] = torch.div(torch.sub(neighbor_embeddings[i], source_node_old_embedding[i])[mask],
-                                                     source_node_old_embedding[i][mask])
-        neighbor_embeddings[i] = torch.mul(tmp, edge_weight[i])
+        neighbor_embeddings[i] = torch.mul(torch.sub(neighbor_embeddings[i], source_node_old_embedding[i]), edge_weight[i])
         #neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_old_embedding[i])
 
       edge_time_embeddings = self.time_encoder(edge_deltas_torch)
