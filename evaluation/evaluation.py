@@ -2,6 +2,9 @@ import math
 import numpy as np
 import torch
 from sklearn.metrics import average_precision_score, roc_auc_score, accuracy_score, precision_score, recall_score, confusion_matrix
+from sklearn import manifold, datasets
+import matplotlib.pyplot as plt
+import time
 
 
 def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_size=200):
@@ -128,10 +131,13 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
   #if (torch.isfinite(pred)==False).nonzero().shape[0] != 0:
   #  pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
   #print(pred.device, next(decoder.parameters()).is_cuda, source_embedding.device)
+  embedding = pred.cpu().numpy()
+
   for d_idx in range(len(decoders)):
     pred_prob = decoders[d_idx](pred)
     pred_prob_num[d_idx] = torch.argmax(pred_prob, dim=1)
   #print('pred_prob_num 1 ', pred_prob_num.shape)
+
   pred_prob_num = torch.mean(pred_prob_num, 0).squeeze()
   #print('pred_prob_num 2 ', pred_prob_num.shape)
   pred_label = (pred_prob_num+0.5).trunc().detach().cpu().numpy()
@@ -158,6 +164,13 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
   #print(data.labels.shape, pred_prob.shape, pred_prob)
   auc_roc = roc_auc_score(data.labels, pred_label)
   torch.cuda.empty_cache()
+
+  #TSNE(embedding, data.labels)
+
+  np.save('week_pred_label.npy', np.array(pred_label))
+  np.save('week_pred_embedding.npy', np.array(embedding))
+  np.save('week_data_labels.npy', np.array(data.labels))
+  print('pred_label saved')
 
   return auc_roc, acc, pre, rec, cm
 
@@ -341,3 +354,27 @@ def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_s
   auc_roc = roc_auc_score(data.labels, pred_label)
   return auc_roc, acc, pre, rec, cm
 '''
+
+
+
+def TSNE(data, label):
+  start = time.time()
+  tsne = manifold.TSNE(n_components=2, init='pca', n_iter=2000, perplexity=50, random_state=501)
+  datat_tsne = tsne.fit_transform(data)
+  # 归一化
+  x_min, x_max = datat_tsne.min(0), datat_tsne.max(0)
+  X_norm = (datat_tsne - x_min) / (x_max - x_min)  # 归一化
+  print("Org data dimension is {}.TSNE data dimension is {}. time:{:.3f}s"
+        .format(data.shape[-1], datat_tsne.shape[-1], time.time() - start))
+
+  plt.figure(figsize=(8, 8))
+  #for i in range(X_norm.shape[0]):
+    # cm: color map
+  plt.scatter(X_norm[:, 0], X_norm[:, 1], color=plt.cm.Set1(label))
+  plt.xticks([])
+  plt.yticks([])
+
+  plt.savefig('./distribution.jpg', dpi=500)
+  plt.show()
+
+  return
