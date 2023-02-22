@@ -20,18 +20,16 @@ print(torch.cuda.device_count())
 print(torch.cuda.get_device_name(0))
 
 a = np.arange(4)
-a = np.tile(a, (3, 2, 1))
+a = np.tile(a, (3, 2))
 print('a:', a, a.shape)
 
-b = np.ones(2)*3
-b = np.tile(b, (3,1))
-print('b:', b, b.shape)
+df = pd.DataFrame(a)
 
-a = torch.from_numpy(a)
-b = torch.from_numpy(b)
+print(df)
 
-c = torch.mul(a, b)
-print(c)
+ax = df.mul(3)
+
+print(ax, df)
 
 
 
