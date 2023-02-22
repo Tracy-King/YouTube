@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import spacy
+
 spacy.prefer_gpu()
 
 import os
@@ -14,18 +15,12 @@ def main():
 
     # body length
     df["bodylength"] = df["body"].str.len().fillna(0).astype("int")
-
     df.drop(['Unnamed: 0'], axis=1, inplace=True)
     df.drop(['Unnamed: 0.1'], axis=1, inplace=True)
-
-    #df = df[df['originVideoId'] == '97DWg8tqo4M']
-
     df.info()
 
-    #df.sample(10)
 
     channel_list = df['originChannelId'].drop_duplicates().values.tolist()
-
 
     channel_cnt = 0
     channel_list_n = len(channel_list)
@@ -35,18 +30,17 @@ def main():
         path = '../channels/{}'.format(channel)
         if not os.path.exists(path):
             os.mkdir(path)
-        channel_df = df[df['originChannelId']==channel]
+        channel_df = df[df['originChannelId'] == channel]
         video_list = channel_df['originVideoId'].drop_duplicates().values.tolist()
         video_list_n = len(video_list)
         for video in video_list:
-            video_df = channel_df[channel_df['originVideoId']==video]
-            video_df.to_csv(path+'/{}.csv'.format(video), encoding='utf-8')
+            video_df = channel_df[channel_df['originVideoId'] == video]
+            video_df.to_csv(path + '/{}.csv'.format(video), encoding='utf-8')
             print('Video {}/{}'.format(video_cnt, video_list_n))
             video_cnt += 1
 
         print('Channel {}/{}'.format(channel_cnt, channel_list_n))
         channel_cnt += 1
-
 
 
 if __name__ == '__main__':

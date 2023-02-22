@@ -11,7 +11,7 @@ import os
 
 class TGN(torch.nn.Module):
     def __init__(self, neighbor_finder, node_features, edge_features, update_records, device, data, n_layers=2,
-                 n_heads=2, dropout=0.1, use_memory=False, embedding_dim=128,
+                 n_heads=2, dropout=0.1, embedding_dim=128,
                  mean_time_shift_src=0, std_time_shift_src=1, mean_time_shift_dst=0,
                  std_time_shift_dst=1, n_neighbors=None, dyrep=False):
         super(TGN, self).__init__()
@@ -38,7 +38,6 @@ class TGN(torch.nn.Module):
         self.dyrep = dyrep
         self.last_updated = np.zeros(self.n_nodes)
 
-        self.use_memory = use_memory
         self.time_encoder = TimeEncode(dimension=self.n_node_features)
 
         self.embedding_dict = dict()
@@ -61,8 +60,7 @@ class TGN(torch.nn.Module):
                                                      n_time_features=self.n_node_features,
                                                      embedding_dimension=self.embedding_dimension,
                                                      device=self.device,
-                                                     n_heads=n_heads, dropout=dropout,
-                                                     n_neighbors=self.n_neighbors)
+                                                     n_heads=n_heads, dropout=dropout)
 
         # MLP to compute probability on an edge given two node embeddings
         self.affinity_score = MergeLayer(self.n_node_features, self.n_node_features,
@@ -138,7 +136,6 @@ class TGN(torch.nn.Module):
 
         n_samples = len(source_nodes)
         nodes = np.concatenate([source_nodes, destination_nodes])
-        positives = np.concatenate([source_nodes, destination_nodes])
         timestamps = np.concatenate([edge_times, edge_times])
 
         ### Compute differences between the time the memory of a node was last updated,
@@ -207,6 +204,7 @@ class TGN(torch.nn.Module):
         self.embedding_module.update_node_features(updated_node_raw_features=self.node_raw_features)
 
         # Compute the embeddings using the embedding module
+        torch.cuda.empty_cache()
 
         node_embedding = self.embedding_module.compute_embedding(source_node_raw_features=node_features,
                                                                  source_nodes=nodes,

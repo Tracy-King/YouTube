@@ -113,21 +113,20 @@ class GraphEmbedding(EmbeddingModule):
             edge_time_embeddings = self.time_encoder(edge_deltas_torch)
 
             mask = neighbors_torch == 0
-
+            torch.cuda.empty_cache()
             source_embedding = self.aggregate(n_layers,
                                               source_node_features,
                                               source_node_old_embedding,
                                               source_nodes_time_embedding,
                                               neighbor_embeddings,
                                               edge_time_embeddings,
-                                              edge_features,
                                               mask)
 
             return source_embedding
 
     def aggregate(self, n_layers, source_node_features, source_node_old_embedding, source_nodes_time_embedding,
                   neighbor_embeddings,
-                  edge_time_embeddings, edge_features, mask):
+                  edge_time_embeddings, mask):
         return None
 
 
@@ -146,7 +145,6 @@ class GraphAttentionEmbedding(GraphEmbedding):
             n_node_features=n_node_features,
             n_node_old_embedding=self.n_node_old_embedding,
             n_neighbors_features=n_node_features,
-            n_edge_features=n_edge_features,
             time_dim=n_time_features,
             n_head=n_heads,
             dropout=dropout,
@@ -155,10 +153,10 @@ class GraphAttentionEmbedding(GraphEmbedding):
 
     def aggregate(self, n_layer, source_node_features, source_node_old_embedding, source_nodes_time_embedding,
                   neighbor_embeddings,
-                  edge_time_embeddings, edge_features, mask):
+                  edge_time_embeddings, mask):
         attention_model = self.attention_models[n_layer - 1]
 
-        source_embedding, _ = attention_model(source_node_features,
+        source_embedding = attention_model(source_node_features,
                                               source_node_old_embedding,
                                               source_nodes_time_embedding,
                                               neighbor_embeddings,
@@ -171,7 +169,7 @@ class GraphAttentionEmbedding(GraphEmbedding):
 def get_embedding_module(node_features, edge_features, update_records, neighbor_finder,
                          time_encoder, n_layers, n_node_features, n_edge_features, n_time_features,
                          embedding_dimension, device,
-                         n_heads=2, dropout=0.1, n_neighbors=None):
+                         n_heads=2, dropout=0.1):
         return GraphAttentionEmbedding(node_features=node_features,
                                        edge_features=edge_features,
                                        update_records=update_records,

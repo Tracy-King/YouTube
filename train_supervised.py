@@ -9,14 +9,11 @@ from pathlib import Path
 
 import torch
 import numpy as np
-from sklearn.metrics import average_precision_score, roc_auc_score, accuracy_score, precision_score, recall_score, \
-    confusion_matrix
-
+from sklearn.metrics import roc_auc_score, precision_score
 from model.tgn import TGN
 from utils.utils import EarlyStopMonitor, get_neighbor_finder, MLP
 from utils.data_processing import compute_time_statistics, get_data_node_classification
 from evaluation.evaluation import eval_node_classification
-import pynvml
 
 random.seed(0)
 np.random.seed(0)
@@ -32,7 +29,7 @@ parser.add_argument('--n_undersample', type=int, help='Parameter for undersampli
                     default=3)
 parser.add_argument('--dataset_r1', type=float, default=0.50, help='Validation dataset ratio')
 parser.add_argument('--dataset_r2', type=float, default=0.75, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=200, help='Batch_size')
+parser.add_argument('--bs', type=int, default=1000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
@@ -223,15 +220,14 @@ for i in range(args.n_runs):
                 train_auc = roc_auc_score(labels_batch, pred_label)
                 train_pre = precision_score(labels_batch, pred_label)
             decoder_loss = decoder_loss_criterion(pred[sample_index], labels_batch_onehot[sample_index])
-            loss += decoder_loss / N_DECODERS
 
-        loss.backward()
-        optimizer.step()
-
-        torch.cuda.empty_cache()
-        if k % 100 == 0:
-            logger.debug("{}/{},{}".format(k, num_batch, loss.item()))
-        train_losses.append(loss.item())
+            decoder_loss.backward()
+            optimizer.step()
+            loss += decoder_loss.item() / N_DECODERS
+            torch.cuda.empty_cache()
+            if k % 100 == 0:
+                logger.debug("{}/{},{}".format(k, num_batch, loss))
+        train_losses.append(loss/num_batch)
         torch.cuda.empty_cache()
 
         val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoders, val_data,

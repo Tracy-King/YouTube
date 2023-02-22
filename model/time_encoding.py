@@ -24,20 +24,3 @@ class TimeEncode(torch.nn.Module):
 
     return output
 
-
-
-class EdgeEncode(torch.nn.Module):
-  # Time Encoding proposed by TGAT
-  def __init__(self, dimension):
-    super(EdgeEncode, self).__init__()
-
-    self.dimension = dimension
-    self.w = torch.nn.Linear(2, dimension, bias=False)
-
-    self.w.weight = torch.nn.Parameter((torch.from_numpy(np.tile((1 / 10 ** np.linspace(0, 9, dimension)), (2, 1)).T))
-                                       .float())
-
-  def forward(self, t):
-    output = self.w(t)
-
-    return output

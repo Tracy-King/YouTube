@@ -10,7 +10,7 @@ class TemporalAttentionLayer(torch.nn.Module):
    its neighbors and the edge timestamps.
   """
 
-    def __init__(self, n_node_features, n_node_old_embedding, n_neighbors_features, n_edge_features, time_dim,
+    def __init__(self, n_node_features, n_node_old_embedding, n_neighbors_features, time_dim,
                  output_dimension, n_head=2,
                  dropout=0.1):
         super(TemporalAttentionLayer, self).__init__()
@@ -25,7 +25,6 @@ class TemporalAttentionLayer(torch.nn.Module):
         self.key_dim = n_neighbors_features + time_dim
 
         self.merger = MergeLayer(self.query_dim, n_node_old_embedding, n_node_features, output_dimension)
-        self.linear = LinearLayer(self.query_dim, output_dimension)
 
         self.multi_head_target = nn.MultiheadAttention(embed_dim=self.query_dim,
                                                        kdim=self.key_dim,
@@ -65,20 +64,18 @@ class TemporalAttentionLayer(torch.nn.Module):
         # original tgat paper which was forcing fake neighbors to all have same attention of 1e-10
         neighbors_padding_mask[invalid_neighborhood_mask.squeeze(), 0] = False
 
-        attn_output, attn_output_weights = self.multi_head_target(query=query, key=key, value=key,
+        attn_output, _ = self.multi_head_target(query=query, key=key, value=key,
                                                                   key_padding_mask=neighbors_padding_mask)
-        # print(attn_output.shape, src_node_old_embedding_unrolled.shape)
 
         attn_output = attn_output.squeeze()
-        attn_output_weights = attn_output_weights.squeeze()
 
         # Source nodes with no neighbors have an all zero attention output. The attention output is
         # then added or concatenated to the original source node features and then fed into an MLP.
         # This means that an all zero vector is not used.
         attn_output = attn_output.masked_fill(invalid_neighborhood_mask, 0)
-        attn_output_weights = attn_output_weights.masked_fill(invalid_neighborhood_mask, 0)
 
         # Skip connection with temporal attention over neighborhood and the features of the node itself
+        torch.cuda.empty_cache()
         attn_output = self.merger(attn_output, src_node_old_embedding)
 
-        return attn_output, attn_output_weights
+        return attn_output
