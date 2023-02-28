@@ -23,8 +23,8 @@ torch.manual_seed(0)
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
                     default='concat_week_v3.10')  # 1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
-parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=1)
+parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoders',
+                    default=15)
 parser.add_argument('--n_undersample', type=int, help='Parameter for undersampling',
                     default=3)
 parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
@@ -46,6 +46,8 @@ parser.add_argument('--backprop_every', type=int, default=1, help='Every how man
                                                                   'backprop')
 parser.add_argument('--uniform', action='store_true',
                     help='take uniform sampling from temporal neighbors')
+parser.add_argument('--without_difference', action='store_true',
+                    help='Whether to not use temporal difference module')
 
 try:
     args = parser.parse_args()
@@ -53,6 +55,7 @@ except:
     parser.print_help()
     sys.exit(0)
 
+WITHOUT_DIFFERENCE = args.without_difference
 DATASET_R1 = args.dataset_r1
 DATASET_R2 = args.dataset_r2
 N_DECODERS = args.n_decoder
@@ -126,7 +129,8 @@ for i in range(args.n_runs):
               n_heads=NUM_HEADS, dropout=DROP_OUT,
               embedding_dim=NODE_DIM, n_neighbors=NUM_NEIGHBORS,
               mean_time_shift_src=mean_time_shift_src, std_time_shift_src=std_time_shift_src,
-              mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst)
+              mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst,
+              without=WITHOUT_DIFFERENCE)
 
     tgn = tgn.to(device)
 

@@ -6,12 +6,12 @@ import src.read_data
 import src.sentence_vector
 
 parser = argparse.ArgumentParser('Interface for TGN data preprocessing')
-parser.add_argument('--channel', type=str, help="Channel name (refer to dir '../channel/')",
+parser.add_argument('--channel', type=str, help="Channel ID (refer to dir '/channel/')",
                     default='UC1opHUrw8rvnsadT-iGp7Cg')
-parser.add_argument('--type', type=str, help='Channel of dataset', choices=[
+parser.add_argument('--type', type=str, help='Length of the dynamic graph', choices=[
     "short", "mid", "long"], default='mid')
-parser.add_argument('--graph', type=bool, help='Whether create dynamic graph or not', action='store_true')
-parser.add_argument('--initial', type=bool, help='Whether initialize or not', action='store_true')
+parser.add_argument('--graph', type=bool, help='Whether to create dynamic graph', action='store_true')
+parser.add_argument('--initial', type=bool, help='Whether to initialize', action='store_true')
 
 args = parser.parse_args()
 

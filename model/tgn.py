@@ -13,7 +13,7 @@ class TGN(torch.nn.Module):
     def __init__(self, neighbor_finder, node_features, edge_features, update_records, device, data, n_layers=2,
                  n_heads=2, dropout=0.1, embedding_dim=128,
                  mean_time_shift_src=0, std_time_shift_src=1, mean_time_shift_dst=0,
-                 std_time_shift_dst=1, n_neighbors=None, dyrep=False):
+                 std_time_shift_dst=1, n_neighbors=None, without=False):
         super(TGN, self).__init__()
 
         self.n_layers = n_layers
@@ -35,7 +35,6 @@ class TGN(torch.nn.Module):
         self.n_edges = self.edge_raw_features.shape[0]
         self.embedding_dimension = embedding_dim
         self.n_neighbors = n_neighbors
-        self.dyrep = dyrep
         self.last_updated = np.zeros(self.n_nodes)
 
         self.time_encoder = TimeEncode(dimension=self.n_node_features)
@@ -60,7 +59,7 @@ class TGN(torch.nn.Module):
                                                      n_time_features=self.n_node_features,
                                                      embedding_dimension=self.embedding_dimension,
                                                      device=self.device,
-                                                     n_heads=n_heads, dropout=dropout)
+                                                     n_heads=n_heads, dropout=dropout, without=without)
 
         # MLP to compute probability on an edge given two node embeddings
         self.affinity_score = MergeLayer(self.n_node_features, self.n_node_features,
