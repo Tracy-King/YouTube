@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import torch
 import os
+import glob
 
 
 
@@ -20,17 +21,19 @@ def superchat(data):
     #sc_data = commenters(data, sc_data)
     #sc_data.to_csv('sc_data2.csv', encoding='utf-8')
 
-    sc_data = pd.read_csv('sc_data2.csv')
+    #sc_data = pd.read_csv('sc_data2.csv')
+    sc_data = pd.concat([
+        pd.read_csv(f)
+        for f in glob.iglob('superchats_*.csv')], ignore_index=True)
 
+    sc_data = originChannelId(sc_data)
+    sc_data['timestamp'] = pd.to_datetime(sc_data['timestamp'])
     result = pd.concat([data, sc_data], join='outer')
     result['timestamp'] = pd.to_datetime(result['timestamp'])
     result.sort_values('timestamp', inplace=True, ignore_index=True)
     del sc_data
     result.to_csv('sc_data3.csv', encoding='utf-8')
     result = membership(result)
-
-    result.info()
-    #print(result.describe())
 
     return result
 
@@ -39,9 +42,6 @@ def membership(data):
     status = {'unknown':0, 'non-member':0, 'less than 1 month':1, '1 month':2, '2 months':3, '6 months':4, '1 year':5, '2 years':6}
 
     data['membership'].replace(status, inplace=True)
-
-
-    print('result:', data.info())
 
     return data
 
@@ -53,7 +53,6 @@ def originChannelId(sc_data):
              'originChannel']]
     sc_data = pd.merge(sc_data, channels, how='left', on=['originChannel'])
     sc_data.drop(['originChannel'], axis=1, inplace=True)
-    sc_data.info()
 
     return sc_data
 
@@ -97,23 +96,28 @@ def commenters(data, sc_data):
     return sc_data
 
 
-def main():
-    ''''
-    chat_3 = pd.read_csv('../chats_2021-03.csv')
-    chat_4 = pd.read_csv('../chats_2021-04.csv')
-    print('chat3:', chat_3.info())
-    print('chat4:', chat_4.info())
-    chat_3['timestamp'] = pd.to_datetime(chat_3['timestamp'])
-    chat_4['timestamp'] = pd.to_datetime(chat_4['timestamp'])
+def dataConcat():
+    df = pd.concat([
+        pd.read_csv(f)
+        for f in glob.iglob('chats_*.csv')], ignore_index=True)
 
-    chat = pd.concat([chat_3[chat_3['timestamp'] > '2021-03-15T23:19:38.000000+00:00'], chat_4])
-    chat.to_csv('../chat3&4.csv')
-    '''
-    chat = pd.read_csv('../chat3&4.csv')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+    #chat_3 = pd.read_csv('../chats_2021-03.csv')
+    #chat_4 = pd.read_csv('../chats_2021-04.csv')
+    #print('chat3:', chat_3.info())
+    #print('chat4:', chat_4.info())
+    #chat_3['timestamp'] = pd.to_datetime(chat_3['timestamp'])
+    #chat_4['timestamp'] = pd.to_datetime(chat_4['timestamp'])
+
+    #chat = pd.concat([chat_3[chat_3['timestamp'] > '2021-03-15T23:19:38.000000+00:00'], chat_4])
+    df.to_csv('../chat_all.csv')
+
+    chat = pd.read_csv('../chat_all.csv')
     result = superchat(chat)
-    result.to_csv('../result2.csv', encoding='utf-8')
+    result.to_csv('../result_all.csv', encoding='utf-8')
 
 
 
 if __name__ == '__main__':
-    main()
+    dataConcat()

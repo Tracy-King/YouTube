@@ -43,8 +43,6 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
             pred_score = np.concatenate([(pos_prob).cpu().numpy(), (neg_prob).cpu().numpy()])
             true_label = np.concatenate([np.ones(size), np.zeros(size)])
 
-            # if (np.isfinite(pred_score) == False).nonzero()[0].shape[0] != 0:
-            #  pred_score = np.nan_to_num(pred_score, nan=0.0, posinf=1.0, neginf=0.0)
 
             val_ap.append(average_precision_score(true_label, pred_score))
             val_auc.append(roc_auc_score(true_label, pred_score))
@@ -56,8 +54,6 @@ def eval_edge_prediction(model, negative_edge_sampler, data, n_neighbors, batch_
             val_acc.append(acc)
             val_pre.append(pre)
             val_rec.append(rec)
-
-            # print('acc:{}, pre:{}, rec:{}'.format(acc, pre, rec))
 
     return np.mean(val_ap), np.mean(val_auc), np.mean(val_acc), np.mean(val_rec), np.mean(val_pre)
 
@@ -111,40 +107,6 @@ def eval_node_classification(tgn, decoders, data, edge_idxs, node_dim, batch_siz
 
     return auc_roc, acc, pre, rec, cm
 
-
-def eval_node_classification_DT(tgn, decoder, data, edge_idxs, node_dim, batch_size, n_neighbors, device):
-    pred = torch.zeros((len(data.sources), node_dim)).to(device)
-    num_instance = len(data.sources)
-    num_batch = math.ceil(num_instance / batch_size)
-
-    with torch.no_grad():
-        tgn.eval()
-        for k in range(num_batch):
-            s_idx = k * batch_size
-            e_idx = min(num_instance, s_idx + batch_size)
-
-            sources_batch = data.sources[s_idx: e_idx]
-            destinations_batch = data.destinations[s_idx: e_idx]
-            timestamps_batch = data.timestamps[s_idx:e_idx]
-            edge_idxs_batch = edge_idxs[s_idx: e_idx]
-
-            source_embedding, destination_embedding = tgn.compute_temporal_embeddings(sources_batch,
-                                                                                      destinations_batch,
-                                                                                      timestamps_batch,
-                                                                                      edge_idxs_batch,
-                                                                                      n_neighbors)
-            pred[s_idx: e_idx] = source_embedding
-
-    if (torch.isfinite(pred) == False).nonzero().shape[0] != 0:
-        pred = torch.nan_to_num(pred, nan=0.0, posinf=1.0, neginf=0.0)
-    pred_label = decoder.predict(pred.cpu().numpy())
-
-    acc = accuracy_score(data.labels, pred_label)
-    pre = precision_score(data.labels, pred_label)
-    rec = recall_score(data.labels, pred_label)
-    cm = confusion_matrix(data.labels, pred_label)
-    auc_roc = roc_auc_score(data.labels, pred_label)
-    return auc_roc, acc, pre, rec, cm
 
 
 def TSNE(data, label):
