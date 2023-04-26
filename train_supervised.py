@@ -44,6 +44,8 @@ parser.add_argument('--node_dim', type=int, default=128, help='Dimensions of the
 parser.add_argument('--time_dim', type=int, default=128, help='Dimensions of the time embedding')
 parser.add_argument('--backprop_every', type=int, default=1, help='Every how many batches to '
                                                                   'backprop')
+parser.add_argument('--cost', action='store_true',
+                    help='use cost-sensitivity loss function')
 parser.add_argument('--uniform', action='store_true',
                     help='take uniform sampling from temporal neighbors')
 
@@ -210,6 +212,11 @@ for i in range(args.n_runs):
             random.shuffle(sample_pos_index)
             sample_index = sample_pos_index
             # under sampling end
+
+            # cost-sensitive loss function
+            if args.cost:
+                weight = len(sample_neg_index) * 1.0 / (len(sample_pos_index) - len(sample_neg_index) + 1)
+                decoder_loss_criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([weight]).to(device))
 
             for d_idx in range(N_DECODERS):
                 pred_prob_num[d_idx] = decoders[d_idx](source_embedding)
