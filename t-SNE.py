@@ -10,7 +10,7 @@ def TSNE(data, label):
   start = time.time()
   tsne = manifold.TSNE(n_components=2, init='pca', n_iter=3000, perplexity=50, random_state=114, learning_rate=100)
   datat_tsne = tsne.fit_transform(data)
-  # 归一化
+
   x_min, x_max = datat_tsne.min(0), datat_tsne.max(0)
   X_norm = (datat_tsne - x_min) / (x_max - x_min)  # 归一化
   print("Org data dimension is {}.TSNE data dimension is {}. time:{:.3f}s"

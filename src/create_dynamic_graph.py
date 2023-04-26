@@ -1,11 +1,13 @@
+import os.path
+
 import pandas as pd
 import numpy as np
 from scipy.spatial.distance import pdist
 import math
 from pathlib import Path
-import codecs
+import glob
 import json
-import os
+
 import re
 import difflib
 
@@ -58,7 +60,6 @@ def time_window_separate(series, emb, window, thrs):
     batch_list = list(range(0, end_time, window))
     batch_list.append(end_time)
 
-    # print(batch_list, len(batch_list))
 
     for i in range(len(batch_list) - 1):  #
         tmp_series = series[(series['offset'] >= batch_list[i])
@@ -86,10 +87,6 @@ def time_window_separate(series, emb, window, thrs):
             s_label = cur_row['superchat']
             m_label = cur_row['membership']
             value = emb[j]
-            '''
-            while len(history_list) != 0 and history_list[0][0]['offset']+window < offset:
-                history_list.pop(0)
-            '''
 
 
             if commenter_id not in node_list:
@@ -117,36 +114,13 @@ def time_window_separate(series, emb, window, thrs):
             history_list.append([cur_row, i])
         if i % 50 == 0:
             print('Batch:{}/{}'.format(i, len(batch_list)))
-        # print("edge:", len(history_edge_list))
-        # print("node:", len(history_list))
-        # print(dynamic_graph)
 
     return pd.DataFrame(dynamic_graph,
                         columns=['Inst', 'Node1', 'Node2', 'Value', 'Batch', 'Offset', 'Superchat', 'Membership',
                                  'Weight', 'Length'])
 
 
-'''
-def dynamic_graph_create(video_list, video_groups, window, thrs):
-    cnt = 0
-    for video_id in video_list:
-        print('Video {} start ({}/{})'.format(video_id, cnt, len(video_list)))
-        dynamic_graph = time_window_separate(video_groups.get_group(video_id), window, thrs)
-        dir = Path('{}_w{}_t{}'.format(root, window, thrs))
-        dir.mkdir(parents=True, exist_ok=True)
-        dynamic_graph.to_pickle('{}_w{}_t{}/{}_dynamic_graph.pkl'.format(root, window, thrs, video_id))
-        cnt += 1
-'''
-
-
-def dynamic_graph_create(series, emb, window, thrs):
-    dynamic_graph = time_window_separate(series, emb, window, thrs)
-    dir = Path('{}_w{}_t{}'.format(root, window, thrs))
-    dir.mkdir(parents=True, exist_ok=True)
-    dynamic_graph.to_pickle('{}_w{}_t{}/{}_dynamic_graph.pkl'.format(root, window, thrs, video_id))
-
-
-def preprocess(data, video_id=0, channel_id=0):
+def preprocess(data):
     u_list, i_list, ts_list, superchat_list, membership_list, weight_list, length_list = [], [], [], [], [], [], []
     idx_list = []
     idx_cnt = 1
@@ -207,14 +181,8 @@ def save_file(df, video_id, update_records, feat_n):
     OUT_FEAT = '../dynamicGraph/ml_{}.json'.format(video_id)
     OUT_NODE_FEAT = '../dynamicGraph/ml_{}_node.npy'.format(video_id)
 
-    # print(feat_l.shape, feat_n.shape)
-    # print(feat_l[:5], feat_n[:5])
-
     empty = np.zeros(feat_n[0].shape[0])[np.newaxis, :]
     feat_n = np.vstack([empty, feat_n])
-
-    # print(feat_l.shape, feat_n.shape)
-    # print(feat_l[:5], feat_n[:5])
 
     df.to_csv(OUT_DF)
 
@@ -223,15 +191,73 @@ def save_file(df, video_id, update_records, feat_n):
 
     np.save(OUT_NODE_FEAT, feat_n)
 
+def data_process(channel_id, dataset):
+    window = 30
+    thrs = math.cos(math.pi / 12)
+    video_list = glob.glob('..\channels\{}\*.csv'.format(channel_id))
+    video_list = [os.path.splitext(os.path.split(path)[-1])[0] for path in video_list]
+    # short = ['1kxCz6tt2MU']
+    # concat_week = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ']
+    # concat_half = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo',
+    #               'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
+    if dataset == 'short':
+        video_id_list = video_list[0]
+    elif dataset == 'mid':
+        video_id_list = video_list[:1+len(video_list)/2]
+    elif dataset == 'long':
+        video_id_list = video_list
+    else:
+        print('invalid dataset')
+        return
+
+    for video_id in video_id_list:
+        data = pd.read_csv(
+            '..\embedding\{}\{}.csv'.format(channel_id, video_id))  # , sep=',', keep_default_na=False
+
+        emb = np.load('..\embedding\{}\{}.npy'.format(channel_id, video_id))
+        new_data = time_window_separate(data, emb, window, thrs)
+
+
+        new_data.to_csv('../dynamicGraph/{}_dynamic_graph.csv'.format(video_id))
+        new_data.to_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
+        # new_data = pd.read_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(video_id))
+        df, feat_n, update_records, node_dict = preprocess(new_data)
+        save_file(df, video_id, update_records, feat_n)
+
+    data = 0  # pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
+    cnt = 1
+    end_time = 0
+    for id in video_id_list:
+        new_data = pd.read_pickle('../dynamicGraph/{}_dynamic_graph.pkl'.format(id))
+        if cnt == 1:
+            print('first:{}-{}'.format(cnt, id))
+            cnt += 1
+            data = new_data
+            end_time = data['Offset'].iat[-1]
+        else:
+            print('next:{}-{}'.format(cnt, id))
+            cnt += 1
+            new_data['Offset'] = new_data['Offset'].add(end_time + 3600)
+            data = data.append(new_data, ignore_index=True)
+            end_time = data['Offset'].iat[-1]
+
+    print(data.info())
+    data.to_pickle('../dynamicGraph/concat_{}_{}.pkl'.format(channel_id, dataset))
+
+    df, feat_n, update_records, node_dict = preprocess(data)
+    save_file(df, 'concat_{}_{}'.format(channel_id, dataset), update_records, feat_n)
+
 
 if __name__ == '__main__':
+    data_process('UC1opHUrw8rvnsadT-iGp7Cg', 'mid')
+    '''
     root = '..\embedding'
-    video_id = '97DWg8tqo4M_aug'
+    # video_id = '97DWg8tqo4M_aug'
     # video_id_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0',
     #                '97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
-    video_id_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0', '1kxCz6tt2MU']
-    channel_id = 'UC1opHUrw8rvnsadT-iGp7Cg'
-    '''
+    # video_id_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0', '1kxCz6tt2MU']
+    # channel_id = 'UC1opHUrw8rvnsadT-iGp7Cg'
+
     g = os.walk('{}\{}'.format(root, channel_id))
     for path, dir_list, file_list in g:
       for file_name in file_list:
@@ -240,14 +266,14 @@ if __name__ == '__main__':
           video_id_list.append(file_name[:-4])
     print("videos num:", len(video_id_list))
     print(video_id_list)
-    '''
+
     #  1kxCz6tt2MU 4-5   DaT7j74W7zw 4-4    8QEhoC-DOjM 4-3 19:00  fkWB_8Yyt0A  4-3 12:00  TDXBiMKQZpI 4-2  GsgbCSC6d50 3-30  zl5P5lAvLwM 3-29  sXnTgUkXqEE 3-28   97DWg8tqo4M 3-27
     #  wtJj3CO_YR0 3-25 eIi8zCPFyng 3-24  rW8jSXVsW2E 3-23    cibdBr9TkEo  3-22   qHZwDxea7fQ 3-21  y3DCfZmX8iA 3-20  k3Nzow_OqQY 3-19   qO8Ld-qLjb0 3-16 21:00  ON3WijEIS1c 3-16 20:00
 
     # savemodel = 'train.model'
     window = 30
     thrs = math.cos(math.pi / 12)
-    '''
+
     for video_id in video_id_list:
         data = pd.read_csv('..\embedding\{}\{}_aug_10.csv'.format(channel_id, video_id)) #, sep=',', keep_default_na=False
         #print(data[:10])
@@ -262,15 +288,16 @@ if __name__ == '__main__':
         print(df['superchat'].value_counts())
         save_file(df, video_id + '_aug_10', update_records, feat_n)
 
-    '''
-    concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ']#, 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
+    short = ['1kxCz6tt2MU']
+    concat_week = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ']#, 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
     #                ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
     # concat_list = ['fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
     
-    # concat_list = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ']#, 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
+    concat_half = ['ON3WijEIS1c', 'qO8Ld-qLjb0', 'k3Nzow_OqQY', 'y3DCfZmX8iA', 'qHZwDxea7fQ', 'cibdBr9TkEo', 'rW8jSXVsW2E', 'eIi8zCPFyng', 'wtJj3CO_YR0']
     #                ['97DWg8tqo4M', 'sXnTgUkXqEE', 'zl5P5lAvLwM', 'GsgbCSC6d50', 'TDXBiMKQZpI', 'fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
     # concat_list = ['fkWB_8Yyt0A', '8QEhoC-DOjM', 'DaT7j74W7zw', '1kxCz6tt2MU']
 
+    concat_list = concat_week
     data = 0#pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
     cnt = 1
     end_time = 0#data['Offset'].iat[-1].to_numpy()
@@ -293,25 +320,7 @@ if __name__ == '__main__':
 
     print(data.info())
     data.to_pickle('../dynamicGraph/concat_week_aug_10_v3.10_tmp3.pkl')
-    '''
-    
-    #data1 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp.pkl')
-    #data2 = pd.read_pickle('../dynamicGraph/concat_full_v3_tmp2.pkl')
-    print(data1.info(), data2.info())
-    end_time = 282594.52699999994
-    print('end_time_1:', end_time)
-    data2['Offset'] = data2['Offset'].add(end_time + 3600)
-    data = pd.concat([data1, data2], ignore_index=True)
-    print('concat finished')
-    data.to_pickle('../dynamicGraph/concat_full_v3.pkl')
-    '''
+
     df, feat_n, update_records, node_dict = preprocess(data)
     save_file(df, 'concat_week_aug_10_v3.10', update_records, feat_n)
-
-    # print(data)
-    # print(data[(data['video_id']=='277076677') & (data['commenter_id']=='113567493')])
-
-
-    #print(df['superchat'].value_counts())
-    #print(df['membership'].value_counts())
-
+'''

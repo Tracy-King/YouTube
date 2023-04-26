@@ -1,14 +1,12 @@
 import pandas as pd
 import numpy as np
-import spacy
 
-spacy.prefer_gpu()
 
 import os
 
 
-def main():
-    df = pd.read_csv("../result2.csv", index_col="timestamp", parse_dates=True, na_values='', keep_default_na=False)
+def splitData():
+    df = pd.read_csv("../result_all.csv", index_col="timestamp", parse_dates=True, na_values='', keep_default_na=False)
 
     # Convert UTC to JST
     df.index = df.index.tz_convert('Asia/Tokyo')
@@ -44,4 +42,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    splitData()

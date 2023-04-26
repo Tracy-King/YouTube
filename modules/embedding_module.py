@@ -9,8 +9,9 @@ from model.temporal_attention import TemporalAttentionLayer
 class EmbeddingModule(nn.Module):
     def __init__(self, node_features, edge_features, update_records, neighbor_finder, time_encoder, n_layers,
                  n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
-                 dropout):
+                 dropout, without=False):
         super(EmbeddingModule, self).__init__()
+        self.without = without
         self.node_features = node_features
         self.device = device
         self.embedding_dimension = embedding_dimension
@@ -47,11 +48,11 @@ class EmbeddingModule(nn.Module):
 class GraphEmbedding(EmbeddingModule):
     def __init__(self, node_features, edge_features, update_records, neighbor_finder, time_encoder, n_layers,
                  n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
-                 n_heads=2, dropout=0.1):
+                 n_heads=2, dropout=0.1, without=False):
         super(GraphEmbedding, self).__init__(node_features, edge_features, update_records,
                                              neighbor_finder, time_encoder, n_layers,
                                              n_node_features, n_edge_features, n_time_features,
-                                             embedding_dimension, device, dropout)
+                                             embedding_dimension, device, dropout, without)
 
         self.device = device
 
@@ -105,10 +106,11 @@ class GraphEmbedding(EmbeddingModule):
             effective_n_neighbors = n_neighbors if n_neighbors > 0 else 1
             neighbor_embeddings = neighbor_embeddings.view(len(source_nodes), effective_n_neighbors, -1)
 
-            for i in range(neighbor_embeddings.shape[0]):
-                neighbor_embeddings[i] = torch.mul(torch.sub(neighbor_embeddings[i], source_node_old_embedding[i]),
+            if not self.without:
+                for i in range(neighbor_embeddings.shape[0]):
+                    neighbor_embeddings[i] = torch.mul(torch.sub(neighbor_embeddings[i], source_node_old_embedding[i]),
                                                    edge_weight[i])
-                # neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_old_embedding[i])
+                    # neighbor_embeddings[i] = torch.sub(neighbor_embeddings[i], source_node_old_embedding[i])
 
             edge_time_embeddings = self.time_encoder(edge_deltas_torch)
 
@@ -133,13 +135,13 @@ class GraphEmbedding(EmbeddingModule):
 class GraphAttentionEmbedding(GraphEmbedding):
     def __init__(self, node_features, edge_features, update_records, neighbor_finder, time_encoder, n_layers,
                  n_node_features, n_edge_features, n_time_features, embedding_dimension, device,
-                 n_heads=2, dropout=0.1):
+                 n_heads=2, dropout=0.1, without=False):
         super(GraphAttentionEmbedding, self).__init__(node_features, edge_features, update_records,
                                                       neighbor_finder, time_encoder, n_layers,
                                                       n_node_features, n_edge_features,
                                                       n_time_features,
                                                       embedding_dimension, device,
-                                                      n_heads, dropout)
+                                                      n_heads, dropout, without)
 
         self.attention_models = torch.nn.ModuleList([TemporalAttentionLayer(
             n_node_features=n_node_features,
@@ -169,7 +171,7 @@ class GraphAttentionEmbedding(GraphEmbedding):
 def get_embedding_module(node_features, edge_features, update_records, neighbor_finder,
                          time_encoder, n_layers, n_node_features, n_edge_features, n_time_features,
                          embedding_dimension, device,
-                         n_heads=2, dropout=0.1):
+                         n_heads=2, dropout=0.1, without=False):
         return GraphAttentionEmbedding(node_features=node_features,
                                        edge_features=edge_features,
                                        update_records=update_records,
@@ -181,4 +183,4 @@ def get_embedding_module(node_features, edge_features, update_records, neighbor_
                                        n_time_features=n_time_features,
                                        embedding_dimension=embedding_dimension,
                                        device=device,
-                                       n_heads=n_heads, dropout=dropout)
+                                       n_heads=n_heads, dropout=dropout, without=without)

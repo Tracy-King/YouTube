@@ -102,9 +102,7 @@ def clean_words(sentence):
 def embedding(df, output_d=128):
     model = SentenceTransformer('paraphrase-xlm-r-multilingual-v1',
                                 device='cuda')
-    #df.info()
-    #print(df.describe())
-    #print(df[:10])
+
     chats = df['body'].astype(str).values.tolist()
     #sentence = clean_words(chats)
 
@@ -151,7 +149,6 @@ def new_df(df, emb):
         offset_t = (end - start).seconds + (end - start).microseconds/10e5
         offset.append(offset_t)
 
-    #print(len(body), len(commenter_id), len(offset))
 
     data = {
         'body':body,
@@ -164,12 +161,11 @@ def new_df(df, emb):
     }
     new_data = pd.DataFrame(data)
 
-    #print(new_data[:10])
     return new_data
 
 
 
-def main(root, channel_id, video_id):
+def embed(root, channel_id, video_id):
     target_path = '../embedding/{}/{}.csv'.format(channel_id, video_id)
     if os.path.exists(target_path):
         return
@@ -185,42 +181,22 @@ def main(root, channel_id, video_id):
     new_data.to_csv(target_path, encoding='utf-8')
     np.save('../embedding/{}/{}.npy'.format(channel_id, video_id), emb)
 
-
-if __name__ == '__main__':
+def travelEmbed():
     pd.set_option('display.max_columns', None)
-    channel_id = 'UC1opHUrw8rvnsadT-iGp7Cg'
-    video_id = '97DWg8tqo4M_aug'
-    root = '../channels/{}/{}.csv'.format(channel_id, video_id)
-    main(root, channel_id, video_id)
-    '''
+    # channel_id = 'UC1opHUrw8rvnsadT-iGp7Cg'
+    # video_id = '97DWg8tqo4M_aug'
+    # root = '../channels/{}/{}.csv'.format(channel_id, video_id)
+    # main(root, channel_id, video_id)
+
     g = os.walk(r"..\channels")
     for path, dir_list, file_list in g:
         channel_id = path[12:]
-        #print(channel_id)
+        # print(channel_id)
         for file_name in file_list:
             video_id = file_name[:-4]
-            #print(video_id)
+            # print(video_id)
             print(os.path.join(path, file_name))
-            main(os.path.join(path, file_name), channel_id, video_id)
-    '''
+            embed(os.path.join(path, file_name), channel_id, video_id)
 
-
-    #main(root, channel_id, video_id)
-
-
-    #t1 = '2021-03-27 18:20:07.070000+09:00'
-    #t2 = '2021-03-27 18:20:05.665000+09:00'
-    #d1 = datetime.strptime(t1, "%Y-%m-%d %H:%M:%S.%f%z")
-    #d2 = datetime.strptime(t2, "%Y-%m-%d %H:%M:%S.%f%z")
-    #print((d1-d2), (d1-d2).seconds, (d1-d2).microseconds, (d1-d2).seconds+(d1-d2).microseconds/10e5)
-
-    #superchat = df[df['isSuperchat'] == 1]['channelId']
-    #print(superchat)
-    #print(len(superchat.drop_duplicates().values.tolist()))
-    #print(len(df['channelId'].drop_duplicates().values.tolist()))
-
-    # toxic = deleted_chat.sample(n_sample)['body'].to_list()
-    # safe  = chat_df.dropna().sample(n_sample)['body'].to_list()
-
-    # toxic_embeds = model.encode(toxic)
-    # safe_embeds = model.encode(safe)
+if __name__ == '__main__':
+    travelEmbed()

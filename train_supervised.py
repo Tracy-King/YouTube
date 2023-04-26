@@ -22,18 +22,18 @@ torch.manual_seed(0)
 ### Argument and global variables
 parser = argparse.ArgumentParser('TGN self-supervised training')
 parser.add_argument('-d', '--data', type=str, help='Dataset name (eg. wikipedia or reddit)',
-                    default='1kxCz6tt2MU_v3.10')  # 1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
-parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoder',
-                    default=1)
+                    default='concat_week_v3.10')  # 1kxCz6tt2MU_v3.10  concat_half_v3.10  concat_week_v3.10
+parser.add_argument('--n_decoder', type=int, help='Number of ensemble decoders',
+                    default=15)
 parser.add_argument('--n_undersample', type=int, help='Parameter for undersampling',
                     default=3)
-parser.add_argument('--dataset_r1', type=float, default=0.50, help='Validation dataset ratio')
-parser.add_argument('--dataset_r2', type=float, default=0.75, help='Test dataset ratio')
-parser.add_argument('--bs', type=int, default=1000, help='Batch_size')
+parser.add_argument('--dataset_r1', type=float, default=0.90, help='Validation dataset ratio')
+parser.add_argument('--dataset_r2', type=float, default=0.95, help='Test dataset ratio')
+parser.add_argument('--bs', type=int, default=2000, help='Batch_size')
 parser.add_argument('--prefix', type=str, default='1kxCz6tt2MU_v3.10', help='Prefix to name the checkpoints')
 parser.add_argument('--n_degree', type=int, default=10, help='Number of neighbors to sample')
 parser.add_argument('--n_head', type=int, default=2, help='Number of heads used in attention layer')
-parser.add_argument('--n_epoch', type=int, default=10, help='Number of epochs')
+parser.add_argument('--n_epoch', type=int, default=1, help='Number of epochs')
 parser.add_argument('--n_layer', type=int, default=2, help='Number of network layers')
 parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
 parser.add_argument('--patience', type=int, default=5, help='Patience for early stopping')
@@ -48,6 +48,8 @@ parser.add_argument('--cost', action='store_true',
                     help='use cost-sensitivity loss function')
 parser.add_argument('--uniform', action='store_true',
                     help='take uniform sampling from temporal neighbors')
+parser.add_argument('--without_difference', action='store_true',
+                    help='Whether to not use temporal difference module')
 
 try:
     args = parser.parse_args()
@@ -55,6 +57,7 @@ except:
     parser.print_help()
     sys.exit(0)
 
+WITHOUT_DIFFERENCE = args.without_difference
 DATASET_R1 = args.dataset_r1
 DATASET_R2 = args.dataset_r2
 N_DECODERS = args.n_decoder
@@ -126,9 +129,10 @@ for i in range(args.n_runs):
               edge_features=edge_features, update_records=update_records, device=device, data=DATA,
               n_layers=NUM_LAYER,
               n_heads=NUM_HEADS, dropout=DROP_OUT,
-              embedding_dim=NODE_DIM,n_neighbors=NUM_NEIGHBORS,
+              embedding_dim=NODE_DIM, n_neighbors=NUM_NEIGHBORS,
               mean_time_shift_src=mean_time_shift_src, std_time_shift_src=std_time_shift_src,
-              mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst)
+              mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst,
+              without=WITHOUT_DIFFERENCE)
 
     tgn = tgn.to(device)
 
@@ -199,12 +203,12 @@ for i in range(args.n_runs):
             # under sampling start
             index = list(range(size))
             sample_pos_index = []
-            for i in index:
-                if labels_batch[i] == 1:
+            for j in index:
+                if labels_batch[j] == 1:
                     sample_pos_index.append(i)
                 if len(sample_pos_index) == 0:
                     continue
-            sample_neg_index = random.sample([i for i in index if i not in sample_pos_index],
+            sample_neg_index = random.sample([j for j in index if j not in sample_pos_index],
                                              min(args.n_undersample * (len(sample_pos_index) + 1),
                                                  size - len(sample_pos_index)))
 
@@ -234,7 +238,7 @@ for i in range(args.n_runs):
             torch.cuda.empty_cache()
             if k % 100 == 0:
                 logger.debug("{}/{},{}".format(k, num_batch, loss))
-        train_losses.append(loss/num_batch)
+        train_losses.append(loss / num_batch)
         torch.cuda.empty_cache()
 
         val_auc, val_acc, val_rec, val_pre, val_cm = eval_node_classification(tgn, decoders, val_data,
@@ -267,20 +271,17 @@ for i in range(args.n_runs):
             logger.info("No improvement over {} epochs, stop training".format(early_stopper.max_round))
             break
         else:
-            torch.save(decoder.state_dict(), get_checkpoint_path(epoch))
-
+            torch.save(tgn.state_dict(), get_checkpoint_path(epoch))
 
     logger.info(f"Loading the best model at epoch {early_stopper.best_epoch}")
     best_model_path = get_checkpoint_path(early_stopper.best_epoch)
-    decoder.load_state_dict(torch.load(best_model_path))
+    tgn.load_state_dict(torch.load(best_model_path))
     logger.info(f"Loaded the best model at epoch {early_stopper.best_epoch} for inference")
 
-    decoder.eval()
-    test_auc, test_acc, test_rec, test_pre, test_cm = eval_node_classification(tgn, decoder, test_data,
-                                                                                       full_data.edge_idxs, BATCH_SIZE,
-                                                                                       n_neighbors=NUM_NEIGHBORS,
-                                                                                       device=device)
-
+    test_auc, test_acc, test_rec, test_pre, test_cm = eval_node_classification(tgn, decoders, test_data,
+                                                                               full_data.edge_idxs, NODE_DIM, BATCH_SIZE,
+                                                                               n_neighbors=NUM_NEIGHBORS,
+                                                                               device=device)
 
     pickle.dump({
         "val_aps": val_aucs,
