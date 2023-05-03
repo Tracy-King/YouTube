@@ -111,6 +111,7 @@ optional arguments:
   --time_dim TIME_DIM          Dimensions of the time embedding
   --backprop_every             Number of batches to process before performing backpropagation
   --uniform                    Whether to sample the temporal neighbors uniformly (or instead take the most recent ones)
+  --cost                       Whether to use the cost-sensitivity loss function
   --without_difference         Whether to not use temporal difference module
 ```
 
